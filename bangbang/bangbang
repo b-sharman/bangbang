@@ -1,0 +1,133 @@
+#!/usr/bin/python
+
+from __future__ import division, absolute_import, print_function
+
+import argparse, socket
+from version import __version__
+
+from bbutilities import input23
+
+# Let's automatically define the port, instead of giving the user another
+# meaningless number that they have to keep track of.
+PORT = 4132
+
+def list2str(arg):
+    ret = ""
+    for x in arg:
+        ret += x + "."
+
+    return ret
+
+def get_lan_ip():
+    """
+    Return the computer's Local Area Network IP address.
+
+    For example: 192.168.x.x where x and x are replaced with digits
+    """
+
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    # The following raises socket.error if not connected to Internet
+    # Wrote a simple try-except to get around.
+    try:
+        s.connect(("8.8.8.8", 80))
+    except socket.error as m:
+        message = "Network detection failure, automatically switching to localhost.\n" + str(m)
+        print(message)
+        ret = "localhost"
+    else:
+        ret = s.getsockname()[0]
+    s.close()
+
+    return ret
+
+def main():
+
+    parser = argparse.ArgumentParser(
+        description = "Bang Bang " + __version__,
+        epilog = "See the README for more information.",
+        prog = "bangbang")
+    parser.add_argument("--host", help = "Provide a host to bind to")
+    parser.add_argument("-f", "--fps",
+                        help = "Set the frames per second that the computer tries to push out. WARNING: Varying framerates are known to cause differences in acceleration, etc.",
+                        type=int)
+    parser.add_argument("-m", "--no-music", help = "Disable music", action = "store_true"),
+    parser.add_argument("-n", "--set-name", help = "Set the name of the server and exit",
+                        action = "store_true", default = False)
+    parser.add_argument("-p", "--port",
+                        help = "Force Bang Bang to run on a certain port",
+                        type=int)
+    parser.add_argument("-s", "--server", action = "store_true",
+                        default = False,
+                        help = "Act as a server, see README for more info")
+    parser.add_argument("-v", "--version", help = "Print version number and exit",
+                        action = "store_true", default = False)
+    parser.add_argument("-x", "--explosion-frames", help = "The length of the explosion animation, maximum is 150. Try decreasing this if your load times are too high.", type=int)
+
+    args = parser.parse_args()
+
+    if args.version:
+        print("Bang Bang " + __version__ + "\n")
+        
+        print("Running on:\n")
+        
+        # https://docs.python.org/3/library/sys.html#sys.version
+        import platform
+        print("Python", platform.python_version())
+        print("https://www.python.org/ \n")
+        
+        # https://www.pygame.org/docs/ref/pygame.html#module-pygame.version
+        from pygame.version import ver as pygamever
+        print("Pygame", pygamever)
+        print("https://www.pygame.org \n")
+        
+        # I couldn't find any way to print the PyOpenGL version...
+        # http://pyopengl.sourceforge.net/documentation/
+        print("Made with PyOpenGL")
+        print("http://pyopengl.sourceforge.net")
+        
+        exit()
+
+    if args.set_name:
+        name = input23("Your name (leave blank for no name): ")
+        writer = open("servername", "w")
+        writer.write(name)
+        writer.close()
+        exit()
+
+    if args.host:
+        host = args.host
+    else:
+        host = get_lan_ip()
+        if not args.server: # we are a client
+            # try to find the server
+            # if it fails, then the program kills itself and the user is told restart it with the --host flag
+            host = None # client.py will figure out the real host
+
+    if args.port:
+        port = args.port
+    else:
+        port = PORT
+
+    fps = 50
+    if args.fps:
+        fps = args.fps
+
+    explo_frames = 150
+    # Check if args.explosion_frames is a number
+    # if we just check for truth/falsity value, then passing -x 0 will not work.
+    if type(args.explosion_frames) == type(0):
+        if args.explosion_frames > 150 or args.explosion_frames < 0:
+            print("Error: valid range for -x is 0 - 150")
+        explo_frames = args.explosion_frames
+
+    if args.server:
+        #from . import server
+        import server
+        server.main(host, port)
+    else:
+        #from . import client
+        import client
+        client.main(host, port, fps, explo_frames, args.no_music)#, args.high_graphics)
+
+if __name__ == "__main__":
+    main()
