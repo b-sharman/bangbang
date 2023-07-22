@@ -5,37 +5,14 @@ from __future__ import print_function
 import numpy as np
 import random
 
-from version import __version__
-
+# TODO: rename this constant
 HW_CONST = 125
 
-# Here's our message, we'll make it very specific to avoid potentially getting weird stuff.
-MESSAGE = "Hello there. Do you happen to be a running server for Bang Bang " + __version__ + "?"
 
 class DummyPos(object):
     def __init__(self, pos):
         self.pos = np.array(pos)
 
-
-def input23(string):
-    """Attempt to define an input function that is compatible with both Python 2 and Python 3.
-
-Essentially, it will use raw_input if raw_input is defined and input otherwise.
-"""
-
-    #print("type(__builtins__):", type(__builtins__))
-    #print(vars(__builtins__))
-
-    # If raw_input is defined, we are using Python 2. In this case, we MUST use raw_input,
-    # because in Python 2, input is similar to exec or eval().
-    #if "raw_input" in vars(__builtins__):
-    if "raw_input" in __builtins__:
-        print("p2")
-        return raw_input(string)
-        
-    # Using Python 3
-    print("p3")
-    return input(string)
 
 def mag(v):
     """
@@ -43,19 +20,22 @@ def mag(v):
     """
     return np.sqrt((v**2).sum())
 
+
 def normalize(v):
     """
     Normalizes a vector
     """
     return v / mag(v)
 
+
 def a2tf(array):
-    """ Convert an array into a tuple of floats. """
-    return (float(array[0]), float(array[1]), float(array[2]))
+    """Convert an array into a tuple of floats."""
+    return tuple([float[x] for x in array])
+
 
 def read_obj_file(filename):
-    """ Read an obj file and return a list of vertices,
-    faces, and normals.
+    """
+    Read an obj file and return a list of vertices, faces, and normals.
 
     This obj file *MUST* have vertex normals ("vn") in it.
     If it doesn't, the normals list will be empty. Faces is a list of
@@ -64,31 +44,27 @@ def read_obj_file(filename):
     aligned with the vertex.
 
     In Blender, make sure to UNcheck the "Use UV" box in the export
-    dialog."""
+    dialog.
+    """
     # WITH OBJ FILES THE INDEXES ARE 1 OFF! THEY DO *not* START WITH ZERO!
 
-    start = time()
-
-    getfile = open(filename, 'r')
+    with open(filename, "r") as f:
+        file_lines = f.readlines()
 
     vertices = []
     faces = []
     normals = []
 
-    file_lines = getfile.readlines()
-
     for line in file_lines:
         line = line.strip()
-        if line[:2] == "v ": # we can't say 'if line[:1] == "v"' because there's also going to be vn's
-            coordinates = line.split()[1:] # we have to remove the v from the list
-            vertices.append([float(coordinates[0]), float(coordinates[1]), float(coordinates[2])])
+        # we can't say 'if line[:1] == "v"' because there's also going to be vn's
+        if line[:2] == "v ":
+            coordinates = line.split()[1:]  # we have to remove the v from the list
+            vertices.append([float(c) for c in coordinates])
 
         if line[:3] == "vn ":
             numbers = line.split()[1:]
-            normal = []
-            for number in numbers:
-                normal.append(float(number))
-            normals.append(normal)
+            normals.append([float(n) for n in numbers])
 
         if line[:2] == "f ":
             # faces are 6-tuples: 3 vertex_indices, then 3 normal_indices
@@ -101,18 +77,17 @@ def read_obj_file(filename):
                 vertex_indices.append(int(vertex_normal[0]) - 1)
                 normal_indices.append(int(vertex_normal[1]) - 1)
 
-            six_tuple = tuple(vertex_indices + normal_indices)
-
-            faces.append(six_tuple)
-
-    getfile.close() # close the file
+            faces.append(tuple(vertex_indices + normal_indices))
 
     return [vertices, faces, normals]
 
-def draw_model(vertices, faces, normals):
-    """ Draw a 3d model from vertices, faces, and normals.
 
-    You can get them from a .ply file by calling read_ply_file()."""
+def draw_model(vertices, faces, normals):
+    """
+    Draw a 3d model from vertices, faces, and normals.
+
+    You can get them from a .ply file by calling read_ply_file().
+    """
 
     # Draw the model
     for face in faces:
@@ -121,17 +96,18 @@ def draw_model(vertices, faces, normals):
             for vertex_index in face:
                 # tell them where the normal is
                 normal = normals[vertex_index]
-                glNormal(normal[0], normal[1], normal[2])
+                glNormal(*normal)
 
                 # get the vertex
                 vertex = vertices[vertex_index]
 
                 # draw a little triangle
-                glVertex(vertex[0], vertex[1], vertex[2])
+                glVertex(*vertex)
 
             index = face[0]
             vertex = vertices[index]
-            glVertex(vertex[0], vertex[1], vertex[2]) # the last point must close the triangle
+            # the last point must close the triangle
+            glVertex(*vertex)
             glEnd()
 
         if len(face) == 6:
@@ -143,13 +119,13 @@ def draw_model(vertices, faces, normals):
                 normal_index = normal_indices[i]
                 vertex = vertices[vertex_index]
                 normal = normals[normal_index]
-                glNormal(normal[0], normal[1], normal[2])
-                glVertex(vertex[0], vertex[1], vertex[2])
+                glNormal(*normal)
+                glVertex(*vertex)
             glEnd()
 
-def collide_hill(obj, hill, is_shell = False, out = 0):
-    """ Check for a collision between an object and a hill. """
 
+def collide_hill(obj, hill, is_shell=False, out=0):
+    """Check for a collision between an object and a hill."""
     ret = False
     distance1 = 10
     distance2 = 10
@@ -157,7 +133,7 @@ def collide_hill(obj, hill, is_shell = False, out = 0):
 
     if is_shell:
         # The famous distance equation
-        distance = mag(obj.pos - hill.pos) - 20 # subtract the radius of the hill
+        distance = mag(obj.pos - hill.pos) - 20  # subtract the radius of the hill
     else:
         # It's a tank
         # Tank bases are in a ratio roughly 2:1.
@@ -166,7 +142,7 @@ def collide_hill(obj, hill, is_shell = False, out = 0):
         sphere1_pos = obj.pos - (out * 4.625)
         sphere2_pos = obj.pos + (out * 3.75)
 
-        distance = mag(obj.pos - hill.pos) - 4 - 20# Get the center of the tank
+        distance = mag(obj.pos - hill.pos) - 4 - 20  # Get the center of the tank
         distance1 = mag(hill.pos - sphere1_pos) - 4 - 20
         distance2 = mag(hill.pos - sphere2_pos) - 4 - 20
 
@@ -175,31 +151,26 @@ def collide_hill(obj, hill, is_shell = False, out = 0):
 
     return ret
 
+
 def collide_tank(obj, tank, out):
-    """ Check for a collision between an object and a tank. """
-
-    ret = False
-
+    """Check for a collision between an object and a tank."""
     # Tank bases are in a ratio roughly 2:1.
     # We will account for this by checking for collisions with
     # two spheres.
     sphere1_pos = tank.pos - (out * 4.625)
     sphere2_pos = tank.pos + (out * 3.75)
 
-    distance = mag(obj.pos - tank.pos) - 4 # Get the center of the tank
+    distance = mag(obj.pos - tank.pos) - 4  # Get the center of the tank
     distance1 = mag(obj.pos - sphere1_pos) - 4
     distance2 = mag(obj.pos - sphere2_pos) - 4
 
     if (distance <= 0.0) or (distance1 <= 0.0) or (distance2 <= 0.0):
-        ret = True
+        return True
+    return False
 
-    return ret
 
 def collide_mine(mine, tank, out):
-    """ Check for a collision between a mine and a tank. """
-    
-    ret = False
-    
+    """Check for a collision between a mine and a tank."""
     # Tank bases are in a ratio roughly 2:1.
     # We will account for this by checking for collisions with
     # two spheres.
@@ -212,14 +183,11 @@ def collide_mine(mine, tank, out):
     distance2 = mag(mine.pos - sphere2_pos) - 6
 
     if (distance <= 0.0) or (distance1 <= 0.0) or (distance2 <= 0.0):
-        ret = True
+        return True
+    return False
 
-    return ret
 
 def collide_tanktank(tank1, tank2, out1, out2):
-
-    ret = False
-
     tank1_spheres = []
     tank1_spheres.append(tank1.pos - (out1 * 4.625))
     tank1_spheres.append(tank1.pos + (out1 * 3.75))
@@ -234,12 +202,13 @@ def collide_tanktank(tank1, tank2, out1, out2):
         for sphere2 in tank2_spheres:
             distance = mag(sphere1 - sphere2)
             if distance - 4 <= 0.0:
-                ret = True
+                return True
 
-    return ret
+    return False
+
 
 def random_tankpos(hillposes, hw):
-    """ Return an x, y, and z position for a tank. """
+    """Return an x, y, and z position for a tank."""
 
     valid = False
     while not valid:
@@ -255,27 +224,25 @@ def random_tankpos(hillposes, hw):
 
     return np.array((x, y, z))
 
+
 def offender(tank1, tank2):
-    """ Did tank1 run into tank 2 or did tank2 run into tank1? """
+    """Did tank1 run into tank 2 or did tank2 run into tank1?"""
 
     # Check if tank1 ran into tank 2
     tank1_pos = tank1.pos + tank1.bout * 5
     if collide_tank(DummyPos(tank1_pos), tank2, tank1.bout):
-        ret = tank1
+        return tank1
     else:
-        ret = tank2
+        return tank2
 
-    return ret
 
 class Shape(object):
-
-    """ Base shape class. """
+    """Base shape class."""
 
     gllist = "Unknown"
 
     def __init__(self, pos):
-        """ You will almost always want to redefine this method! """
-
+        """You will almost always want to redefine this method!"""
         self.pos = np.array(pos)
         self.alive = True
 
@@ -288,13 +255,10 @@ class Shape(object):
     def update_fps(self):
         pass
 
-def naturalobj_poses(no_players, hw):
-    """ Return a list of hill and poses. """
 
-    # no_hills = no_players * 6
-    # no_trees = no_players * 15
+def naturalobj_poses(no_players, hw):
+    """Return a list of hill and poses."""
     no_hills = int(round(6.0 * np.sqrt(2 * no_players)))
-    #no_trees = int(round(30.0 * np.sqrt(2 * no_players)))
     no_trees = int(round(15.0 * np.sqrt(2 * no_players)))
 
     hills = []
@@ -307,7 +271,6 @@ def naturalobj_poses(no_players, hw):
     trees = []
     for i in range(no_trees):
         valid = False
-
         # No trees inside hills!
         while not valid:
             bad_tree = False
@@ -322,19 +285,18 @@ def naturalobj_poses(no_players, hw):
                 valid = True
         trees.append((x, y, z))
     return (hills, trees)
-    
+
+
 def ask_number(prompt):
-    valid = False
-    while not valid:
+    while True:
         try:
-            prompt = int(input23(prompt))
-        except(ValueError):
+            ret = int(input(prompt))
+        except ValueError:
             print("Not a number. Please try again.")
-        else:
-            valid = True
+            continue
+        if ret < 2:
+            print("This is a multiplayer game. Two or more please!")
+            continue
+        break
 
-            if prompt < 2:
-                print("This is a multiplayer game. Two or more please!")
-                exit()
-
-    return prompt
+    return ret
