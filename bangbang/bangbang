@@ -49,7 +49,7 @@ def main():
     args = parser.parse_args()
 
     if args.version:
-        print("Bang Bang " + __version__ + "\n")
+        print("Bang Bang " + constants.VERSION + "\n")
         
         print("Running on:\n")
         

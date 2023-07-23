@@ -1,8 +1,17 @@
 import enum
 
+import numpy as np
+
+# network constants
 PORT = 4320
 SERVER_START_KEYWORD = "start"
 VERSION = "1.3.0a"
+
+# how many frame lengths to store for FPS calculations
+FPS_HISTORY_LENGTH = 10
+
+# which way is up? I guess I chose the Y dimension for whatever reason
+UP = np.array((0, 1, 0), dtype=float)
 
 
 # raises ValueError if message types share a duplicate value
