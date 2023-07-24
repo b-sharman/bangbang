@@ -18,9 +18,10 @@ import bbutils
 from client import Client
 import constants
 
-won = False # Did we win?
-playgame = True
-spectating = False # Are we in spectate mode?
+# Did we win?
+won = False
+# Are we in spectate mode?
+spectating = False
 
 COLLISION_SPRINGBACK = 10.0  # m
 
@@ -247,7 +248,6 @@ class Ground(bbutils.Shape):
         hopelessly lost. The ground will be fix, and I'll set up some
         sort of barrier so that nobody drives off the Earth.
         """
-
         glPushMatrix()
         glColor(*Ground.COLOR)
         glTranslate(*self.pos)
@@ -676,10 +676,8 @@ class Tank(bbutils.Shape):
 
         weapon should be either "tank" or "mine".
 
-        If set to True, player will change the obituary and set playgame to False if
-        the player has died.
+        If set to True, player will change the obituary.
         """
-        global playgame
 
         # TODO: replace "weapon" arg with a damage arg
         if weapon == "tank":
@@ -692,7 +690,6 @@ class Tank(bbutils.Shape):
             if player and not won:
                 self.die()
                 print("You died!")
-                playgame = False
             else:
                 self.die()
                 print(f"{self.name} died.")
@@ -702,11 +699,11 @@ class Tank(bbutils.Shape):
     # TODO: if these vectors are actually left instead of right, rename them
     @property
     def tright(self):
-        return normalize(np.cross(constants.UP, self.tout))
+        return bbutils.normalize(np.cross(constants.UP, self.tout))
 
     @property
     def bright(self):
-        return normalize(np.cross(constants.UP, self.bout))
+        return bbutils.normalize(np.cross(constants.UP, self.bout))
 
 
 class Player(Tank):
@@ -806,7 +803,7 @@ class Spectator(bbutils.Shape):
 
     @property
     def right(self):
-        return normalize(np.cross(constants.UP, self.out))
+        return bbutils.normalize(np.cross(constants.UP, self.out))
 
 
 class VictoryBanner:
@@ -1071,7 +1068,7 @@ class Game:
 
 
 async def main(host, no_music):
-    global playgame, won, SCR, lifebar, explosion, mines, allshapes, spectating
+    global playgame, won, SCR, explosion, mines, allshapes, spectating
 
     print("Welcome to Bang Bang " + constants.VERSION)
 
@@ -1157,6 +1154,7 @@ async def main(host, no_music):
 
     # load sounds
     crash = pygame.mixer.Sound("../data/sound/crash.wav")
+    # TODO: rename this variable and the wav file to something like "hit_sound"
     explosion = pygame.mixer.Sound("../data/sound/explosion.wav")
 
     # reloading is the time at which the player can fire again
@@ -1175,6 +1173,18 @@ async def main(host, no_music):
         
         # listen for input device events
         pygame.event.pump()
+
+        # print FPS to the console when the F key is pressed
+        if pygame.key.get_pressed()[pygame.K_f]:
+            # np.mean(fps_history) is the average length, in seconds, of the past
+            # constants.FPS_HISTORY_LENGTH frames
+            print(f"{int(round(1 / np.mean(fps_history)))} FPS")
+            
+        # quit game on window close or escape key
+        if pygame.event.get(pygame.QUIT) or pygame.key.get_pressed()[pygame.K_ESCAPE]:
+            # end right now
+            # this breaks out of the while loop
+            end_time = frame_start_time
 
         # Clear Everything
         glLoadIdentity()
@@ -1199,28 +1209,8 @@ async def main(host, no_music):
         # Delete to avoid me making a bug later
         del pos, out
 
-        if pygame.key.get_pressed()[pygame.K_f]:
-            # np.mean(fps_history) is the average length, in seconds, of the past
-            # constants.FPS_HISTORY_LENGTH frames
-            print(int(round(1 / np.mean(fps_history))) + " FPS")
-            
-        if pygame.key.get_pressed()[pygame.K_k]:
-            # We need a reliable way to get out of it
-            print("K")
-            exit()
-
-        # Win?
-        if (not tanks) and (playgame): # We are the only person left:
-            print("Congrats! YOU WON!")
-            should_update = True
-            won = True
-            playgame = False
-            
-            # Make the victory banner
-            victory_banner = VictoryBanner(SCR)
-
-        # Send handshake if dead
-        pass
+        for shape in allshapes:
+            shape.update()
 
         # Make bullet on Space
         # TODO: add networking to this
@@ -1245,7 +1235,6 @@ async def main(host, no_music):
             allshapes.append(mine)
             mine_reload = Mine.RELOAD
 
-        if not playgame and end_time is None:
             if (not won) and (not spectating):
                 # We died, now enter spectate mode.
                 spectating = True
@@ -1264,15 +1253,13 @@ async def main(host, no_music):
             if collide_hill(player, hill, False, player.bout):
 
                 # Calculate a vector away from the hill. Does that make sense? :P
-                #away = normalize(hill.pos - player.pos)
-                away = normalize(player.pos - hill.pos)
+                #away = bbutils.normalize(hill.pos - player.pos)
+                away = bbutils.normalize(player.pos - hill.pos)
                 
                 # Back up the player so they aren't permanently stuck
                 # Go a certain distance away from the hill
                 player.pos += away * 10
                 player.speed = 0.0
-
-                should_update = True
 
             # Shell vs. hill
             for shell in shells:
@@ -1320,11 +1307,11 @@ async def main(host, no_music):
                     for hill in hills:
                         if collide_hill(tank, hill, False, tank.bout):
                             tank.pos = (20 + COLLISION_SPRINGBACK) * \
-                                         normalize(tank.pos - hill.pos) + \
+                                         bbutils.normalize(tank.pos - hill.pos) + \
                                          hill.pos
                         if collide_hill(player, hill, False, player.bout):
                             player.pos = (20 + COLLISION_SPRINGBACK) * \
-                                         normalize(player.pos - hill.pos) + \
+                                         bbutils.normalize(player.pos - hill.pos) + \
                                          hill.pos
                 for tree in trees:
                     if collide_tank(tree, tank, tank.bout) and not tree.falling.any():
@@ -1333,19 +1320,15 @@ async def main(host, no_music):
                         tree.fall(bad_tank.bright, 0.5)
                 tank.speed = 0.0
                 player.speed = 0.0
-                should_update = True
 
         for shell in shells:
             for i in range(len(shell.pos)):
                 if shell.pos[i] > Ground.HW or shell.pos[i] < -Ground.HW:
                     shell.hill()
 
-        # Quit Game on X
-        if pygame.event.get(pygame.QUIT) or pygame.key.get_pressed()[pygame.K_ESCAPE]:
-            playgame = False
-
         # Draw victory banner, if it exists
-        if victory_banner:
+        # a better way to do this might be to use hasattr(victory_banner, "draw")
+        if victory_banner is not None:
             victory_banner.draw()
 
         # Update LifeBar
