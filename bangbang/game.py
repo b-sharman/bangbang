@@ -1034,11 +1034,11 @@ async def main(host, no_music):
     await game.initialize(host)
 
     # initialize pygame to display OpenGL
-    screen = pygame.display.set_mode(
-        (0, 0), OPENGL | DOUBLEBUF | FULLSCREEN | HWSURFACE
-    )
+    screen = pygame.display.set_mode(flags=OPENGL | DOUBLEBUF | FULLSCREEN | HWSURFACE)
     SCR = (screen.get_width(), screen.get_height())
-    pygame.mouse.set_visible(False)  # hide the mouse
+
+    # hide the mouse
+    pygame.mouse.set_visible(False)
 
     # start music ASAP if the user wants it
     if not no_music:
@@ -1063,13 +1063,13 @@ async def main(host, no_music):
     glColorMaterial(GL_FRONT, GL_DIFFUSE)
     glEnable(GL_COLOR_MATERIAL)
 
-    # set up the explosion displaylists
-    setup_explosion()
-
     # set up the camera lens
     glMatrixMode(GL_PROJECTION)
     gluPerspective(45.0, float(SCR[0]) / float(SCR[1]), 0.1, Ground.DIAGONAL)
     glMatrixMode(GL_MODELVIEW)
+
+    # set up the explosion displaylists
+    setup_explosion()
 
     # NATURE
 
