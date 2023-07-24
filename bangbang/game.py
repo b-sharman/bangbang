@@ -2,8 +2,6 @@
 import asyncio
 import math
 import random
-import subprocess
-import sys
 import time
 
 import numpy as np
@@ -18,9 +16,9 @@ import bbutils
 from client import Client
 import constants
 
-# Did we win?
+# did we win?
 won = False
-# Are we in spectate mode?
+# are we in spectate mode?
 spectating = False
 
 COLLISION_SPRINGBACK = 10.0  # m
@@ -32,30 +30,32 @@ COLLISION_SPRINGBACK = 10.0  # m
 # https://www.pygame.org/docs/ref/pygame.html#pygame.init
 pygame.init()
 
+
 def window2view(pts):
-    """
-    Convert window coordinates to 3D coordinates.
-    """
+    """Convert window coordinates to 3D coordinates."""
     model = glGetDoublev(GL_MODELVIEW_MATRIX)
     projection = glGetDoublev(GL_PROJECTION_MATRIX)
     viewport = glGetIntegerv(GL_VIEWPORT)
 
-    retval = [gluUnProject(pt[0], pt[1], 0.001, model, projection, viewport) for pt in pts]
+    retval = [
+        gluUnProject(pt[0], pt[1], 0.001, model, projection, viewport) for pt in pts
+    ]
 
     return retval
+
 
 def exec_raw(full_name):
     """
     Read in a triangular representation of a piece for rendering.
-    Used a home-grown format which was much faster than stl or ogl.gz
-    reading.
+
+    Uses a custom format which is much faster than stl or ogl.gz reading.
     """
 
     try:
         rawdata = np.fromfile(full_name, np.float32)
     except IOError:
-        print(('Couldn\'t find', full_name))
-        sys.exit()
+        print(("Couldn't find", full_name))
+        exit()
 
     raw_length = len(rawdata) // 2
     normals = np.reshape(rawdata[raw_length:], (raw_length // 3, 3))
@@ -70,67 +70,41 @@ def exec_raw(full_name):
     glDisableClientState(GL_VERTEX_ARRAY)
     glDisableClientState(GL_NORMAL_ARRAY)
 
-def setup_explosion():
-    
-    if Explosion.base_gllists == "Unknown":
 
+def setup_explosion():
+    """Create gllists for Explosions and MineExplosions."""
+    if Explosion.base_gllists == "Unknown":
         Explosion.base_gllists = []
-        for i in range(Explosion.NO_EXPLOSION_FRAMES):
-            if len(str(i + 1)) == 1:
-                name = "../data/models/explosions/base_explosion_00000" + str(i + 1) + ".raw"
-            elif len(str(i + 1)) == 2:
-                name = "../data/models/explosions/base_explosion_0000" + str(i + 1) + ".raw"
-            else:
-                name = "../data/models/explosions/base_explosion_000" + str(i + 1) + ".raw"
+        for i in range(1, Explosion.NO_EXPLOSION_FRAMES + 1):
             gllist = glGenLists(1)
             glNewList(gllist, GL_COMPILE)
-            exec_raw(name)
+            exec_raw(f"../data/models/explosions/base_explosion_{i:06}.raw")
             glEndList()
-
             Explosion.base_gllists.append(gllist)
 
     if Explosion.turret_gllists == "Unknown":
-
         Explosion.turret_gllists = []
-        for i in range(Explosion.NO_EXPLOSION_FRAMES):
-            if len(str(i + 1)) == 1:
-                name = "../data/models/explosions/turret_explosion_00000" + str(i + 1) + ".raw"
-            elif len(str(i + 1)) == 2:
-                name = "../data/models/explosions/turret_explosion_0000" + str(i + 1) + ".raw"
-            else:
-                name = "../data/models/explosions/turret_explosion_000" + str(i + 1) + ".raw"
+        for i in range(1, Explosion.NO_EXPLOSION_FRAMES + 1):
             gllist = glGenLists(1)
             glNewList(gllist, GL_COMPILE)
-            exec_raw(name)
+            exec_raw(f"../data/models/explosions/turret_explosion_{i:06}.raw")
             glEndList()
-
             Explosion.turret_gllists.append(gllist)
-            
-    if MineExplosion.gllists == "Unknown":
 
+    if MineExplosion.gllists == "Unknown":
         MineExplosion.gllists = []
-        if Explosion.NO_EXPLOSION_FRAMES > MineExplosion.MAX_FRAMES:
-            number = MineExplosion.MAX_FRAMES
-        else:
-            number = Explosion.NO_EXPLOSION_FRAMES
-        for i in range(number):
-            if len(str(i + 1)) == 1:
-                name = "../data/models/explosions/mine_explosion_00000" + str(i + 1) + ".raw"
-            else:
-                name = "../data/models/explosions/mine_explosion_0000" + str(i + 1) + ".raw"
+        for i in range(1, MineExplosion.MAX_FRAMES + 1):
             gllist = glGenLists(1)
             glNewList(gllist, GL_COMPILE)
-            exec_raw(name)
+            exec_raw(f"../data/models/explosions/mine_explosion_{i:06}.raw")
             glEndList()
-
             MineExplosion.gllists.append(gllist)
 
-class Tree(bbutils.Shape):
-    """ A dead tree. Leafless. *sniff* """
 
-    ACC = 30.0 # degrees/s**2
+class Tree(bbutils.Shape):
+    ACC = 30.0  # degrees/s**2
     FALL_SOUND = pygame.mixer.Sound("../data/sound/tree.wav")
-    HIT_HEIGHT = 3.0 # Where the tank hits the tree
+    hit_height = 3.0  # where the tank hits the tree
 
     def __init__(self, pos):
         super().__init__()
@@ -141,8 +115,7 @@ class Tree(bbutils.Shape):
             glEndList()
 
         self.pos = np.array(pos)
-        # Set to 0 array when tree is alive. Set to tank.right
-        # when tree is falling
+        # set to 0 array when tree is alive and to tank.right when tree is falling
         self.falling = np.zeros(3)
         self.fall_angle = 0.0
         self.played_sound = False
@@ -154,7 +127,7 @@ class Tree(bbutils.Shape):
         glColor(0.64, 0.44, 0.17)
         glTranslate(*self.pos)
         if self.falling.any():
-            self.speed += (Tree.ACC * delta)
+            self.speed += Tree.ACC * delta
             self.fall_angle += self.speed
             if self.fall_angle > 90:
                 self.fall_angle = 90
@@ -166,8 +139,7 @@ class Tree(bbutils.Shape):
         glPopMatrix()
 
     def fall(self, angle, speed):
-        """ Called when a tank collides with a tree. """
-
+        """Called when a tank collides with a tree."""
         if speed > 0:
             self.falling = angle
         if speed < 0:
@@ -176,10 +148,6 @@ class Tree(bbutils.Shape):
 
 
 class Hill(bbutils.Shape):
-    """
-    Object to maneuver around.
-    """
-
     def __init__(self, pos):
         if Hill.gllist == "Unknown":
             Hill.gllist = glGenLists(1)
@@ -190,9 +158,6 @@ class Hill(bbutils.Shape):
         self.pos = np.array(pos)
 
     def update(self):
-        # Hills are immobile, and at the time of the writing of this
-        # comment they each have the same orientation. All we have
-        # to do is draw it. Sweet.
         glPushMatrix()
         glColor(0.1, 0.3, 0.0)
         glTranslate(*self.pos)
@@ -201,53 +166,39 @@ class Hill(bbutils.Shape):
 
 
 class Ground(bbutils.Shape):
-    """ A plane that will serve as the ground. """
-    
+    """A plane that serves as the ground."""
+
     COLOR = (0.1, 0.3, 0.0)
 
-    HW = 250 # HW for HalfWidth
+    # half-width
+    HW = 250
     WIDTH = HW * 2
-    DIAGONAL = math.sqrt( 2 * (WIDTH ** 2)) # Pythagorean Theorum
+    # length of the diagonal, calculated with the Pythagorean
+    DIAGONAL = math.sqrt(2 * (WIDTH**2))
 
     def __init__(self):
         self.pos = np.zeros(3)
 
     def gen_list(self):
+        """Generate the gllist for the ground."""
         Ground.gllist = glGenLists(1)
         glNewList(Ground.gllist, GL_COMPILE)
         glBegin(GL_POLYGON)
         glNormal(0.0, 1.0, 0.0)
-        glVertex(self.pos[0] - Ground.HW,
-                 self.pos[1],
-                 self.pos[2] - Ground.HW)
+        glVertex(self.pos[0] - Ground.HW, self.pos[1], self.pos[2] - Ground.HW)
         glNormal(0.0, 1.0, 0.0)
-        glVertex(self.pos[0] + Ground.HW,
-                 self.pos[1],
-                 self.pos[2] - Ground.HW)
+        glVertex(self.pos[0] + Ground.HW, self.pos[1], self.pos[2] - Ground.HW)
         glNormal(0.0, 1.0, 0.0)
-        glVertex(self.pos[0] + Ground.HW,
-                 self.pos[1],
-                 self.pos[2] + Ground.HW)
+        glVertex(self.pos[0] + Ground.HW, self.pos[1], self.pos[2] + Ground.HW)
         glNormal(0.0, 1.0, 0.0)
-        glVertex(self.pos[0] - Ground.HW,
-                 self.pos[1],
-                 self.pos[2] + Ground.HW)
+        glVertex(self.pos[0] - Ground.HW, self.pos[1], self.pos[2] + Ground.HW)
         glNormal(0.0, 1.0, 0.0)
-        # The last point must close the square
-        glVertex(self.pos[0] - Ground.HW,
-                 self.pos[1],
-                 self.pos[2] - Ground.HW)
+        # the last point must close the square
+        glVertex(self.pos[0] - Ground.HW, self.pos[1], self.pos[2] - Ground.HW)
         glEnd()
         glEndList()
 
     def update(self):
-        """
-        The playing ground will not be infinite.
-
-        In a multiplayer game, that could cause the players to be
-        hopelessly lost. The ground will be fix, and I'll set up some
-        sort of barrier so that nobody drives off the Earth.
-        """
         glPushMatrix()
         glColor(*Ground.COLOR)
         glTranslate(*self.pos)
@@ -256,9 +207,8 @@ class Ground(bbutils.Shape):
 
 
 class Explosion(bbutils.Shape):
-    """ An explosion. """
-
-    base_gllists = "Unknown" # so that the first explosion will set up the display lists
+    # so that the first explosion will set up the display lists
+    base_gllists = "Unknown"
     turret_gllists = "Unknown"
 
     NO_EXPLOSION_FRAMES = 150
@@ -270,7 +220,7 @@ class Explosion(bbutils.Shape):
         self.frame_index = 0
         self.color = color
 
-    def draw(self):
+    def _draw(self):
         glPushMatrix()
         glColor(*self.color)
         glTranslate(*self.pos)
@@ -282,13 +232,13 @@ class Explosion(bbutils.Shape):
         glTranslate(*self.pos)
         glCallList(Explosion.turret_gllists[self.frame_index])
         glPopMatrix()
-        
+
     def update(self):
         # don't play animation too fast
         if self.delta_time() < 1 / self.TARGET_FPS:
             pass
 
-        self.draw()
+        self._draw()
 
         self.frame_index += 1
         if self.frame_index >= Explosion.NO_EXPLOSION_FRAMES:
@@ -296,14 +246,12 @@ class Explosion(bbutils.Shape):
 
 
 class MineExplosion(Explosion):
-    
     gllists = "Unknown"
     MAX_FRAMES = 50
-    
+
     def __init__(self, pos, color):
         super().__init__(self, pos, color)
-        self.frames = MineExplosion.MAX_FRAMES
-    
+
     def draw(self):
         glPushMatrix()
         glColor(*self.color)
@@ -313,31 +261,27 @@ class MineExplosion(Explosion):
 
 
 class Shell(bbutils.Shape):
-    """ Here it is. The whole point of the game. """
-
     # how many hits does this weapon deal to a Tank upon contact?
     DAMAGE = 1
 
-    SPEED = 100.0 # m/s
+    SPEED = 100.0  # m/s
 
-    START_DISTANCE = 10.2 # m, I guess?
-    HILL_TIME = 3 # s
+    START_DISTANCE = 10.2  # m, I guess?
+    HILL_TIME = 3  # s
 
-    # The shell "explosion" is the still image shown when a shell hits a hill
+    # the shell "explosion" is the still image shown when a shell hits a hill
     explosion_gllist = "Unknown"
-    
+
     COLOR = (0.7, 0.7, 0.7)
     EXPLO_COLOR = (1.0, 0.635, 0.102)
 
     SOUND = pygame.mixer.Sound("../data/sound/shell.wav")
 
-    def __init__(self, pos, out, angle, name, in_id = None):
+    def __init__(self, pos, out, angle, name, in_id=None):
         super().__init__()
+
         # self._clock is initialized in Shape.__init__
         self.spawn_time = self.clock
-
-        # Make noise
-        Shell.SOUND.play()
 
         if Shell.gllist == "Unknown":
             Shell.gllist = glGenLists(1)
@@ -350,21 +294,21 @@ class Shell(bbutils.Shape):
             exec_raw("../data/models/explosions/shell_explosion.raw")
             glEndList()
 
+        Shell.SOUND.play()
+
         self.pos = np.array(pos)
-        self.original_pos = np.array(pos) # DON'T do self.pos here, I think
-        # Put the shell a bit higher to make it appear like it's coming
-        # out of the turret
+        # raise the shell to make it appear like it's exiting the turret
         # TODO: make a constant for this magic number
         self.pos[1] += 4.1
         self.out = np.array(out)
         self.angle = angle
 
-        # Special ID, (hopefully) unique to each shell
+        # special id, (hopefully) unique to each shell
         if not in_id:
             in_id = id(self)
         self.id = in_id
 
-        # Who shot the shell
+        # who shot the shell
         self.name = name
 
         # None until the shell hits a hill; time.time() thereafter
@@ -375,10 +319,12 @@ class Shell(bbutils.Shape):
 
         # self.clock is inherited from Shape, and after calling delta_time, will
         # have a value equivalent to time.time()
-        if self.hill_time is not None and self.clock - self.hill_time >= Shell.HILL_TIME:
+        if (
+            self.hill_time is not None
+            and self.clock - self.hill_time >= Shell.HILL_TIME
+        ):
             self.die()
-        else:
-            self.pos += self.out * (Shell.SPEED * delta)
+            return
 
         glPushMatrix()
         if not self.hit_hill:
@@ -399,86 +345,70 @@ class Shell(bbutils.Shape):
 
 
 class Mine(bbutils.Shape):
-    """
-    A mine. The balancing of this weapon is a WIP.
-    
-    The mine is placed under the center of the player's tank and deals two hits upon impact. If nothing
-    seems to blow it up before five seconds of the mine's life have elapsed, then the mine will automatically
-    detonate. This will deal damage if a tank happens to be over it. A player's mine cannot hurt themselves.
-    
-    The player has an unlimited supply of mines. They can lay them up to every two seconds. As a twist, the
-    color of the mine will be the same as the color of the player who dropped it (if I remember to add that. :P)
-    
-    TBH, all I really intended to make this for is to deal with those super annoying trollers.
-    """
-    
-    LIFETIME = 6 # s
-    
-    DAMAGE = 2
-    
-    BEEP = pygame.mixer.Sound("../data/sound/mine.wav")
     # time interval between beep noises
-    BEEP_INTERVAL = 1 # s
-    
-    EXPLODE = pygame.mixer.Sound("../data/sound/mine_explode.wav")
-    
-    RELOAD = 2 # s
-    
-    def __init__(self, name, pos, color, in_id = None):
+    BEEP_INTERVAL = 1  # s
+    LIFETIME = 6  # s
+    # TODO: move this constant to Tank
+    RELOAD = 2  # s
+
+    DAMAGE = 2
+
+    BEEP_SOUND = pygame.mixer.Sound("../data/sound/mine.wav")
+    EXPLODE_SOUND = pygame.mixer.Sound("../data/sound/mine_explode.wav")
+
+    def __init__(self, name, pos, color, in_id=None):
         super().__init__()
         self.last_beep_time = self.clock
         self.spawn_time = self.clock
-        
+
         # gllist is inherited from the bbutils.Shape class
         if self.gllist == "Unknown":
             self.gllist = glGenLists(1)
             glNewList(self.gllist, GL_COMPILE)
             exec_raw("../data/models/mine.raw")
             glEndList()
-            
+
         self.name = name
         self.pos = np.array(pos)
         self.color = color
-        
+
         if not in_id:
             in_id = id(self)
         self.id = in_id
-        
+
     def update(self):
         global allshapes
 
         # calling this instead of delta_time allows saving a subtraction operation
         self.clock = time.time()
-        
+
         glPushMatrix()
         glColor(*self.color)
         glTranslate(*self.pos)
         glCallList(Mine.gllist)
         glPopMatrix()
-        
+
         if self.clock - self.spawn_time >= self.LIFETIME:
             self.die()
-            
+
             # make a mine explosion
             allshapes.append(MineExplosion(self.pos, self.color))
-            return # so the beep sound can't play
-        
-        # Do the beep
+            return  # so the beep sound can't play
+
+        # make a beep sound periodically
         if self.clock - self.last_beep_time >= self.BEEP_INTERVAL:
-            Mine.BEEP.play()
+            Mine.BEEP_SOUND.play()
             self.last_beep_time = self.clock
+
+    def die(self):
+        super().die()
+        Mine.EXPLODE_SOUND.play()
 
 
 class Tank(bbutils.Shape):
-
-    # We are going to have to draw the front part of the player's tank
-    # The player will be the dude poking his head out of the hatch and
-    # blasting away everything within sight with the main bangbanger
-
-    # The tank model is composed of two models: the turret
-    # and the base. This is so that the turret can spin
-    # independently of the base. B stands for base, T stands
-    # for turret.
+    # The tank model is composed of two models: the turret and the base. This is so that
+    # the turret can spin independently of the base. B stands for base, T stands for
+    # turret.
 
     # how fast the turret rotates after the player presses "t"
     SNAP_SPEED = 60.0  # deg / s
@@ -487,20 +417,21 @@ class Tank(bbutils.Shape):
     BROTATE = 3
     TROTATE = 2
 
-    # The range at which "s" stops the tank
-    SNAP_STOP = 0.13 # m/s
+    # the range in which "s" stops the tank
+    SNAP_STOP = 0.13  # m/s
 
     # Speeds
     # 1 OGL unit = 1.74 meter
-    # Real M1 Abrams acceleration: 2.22
-    ACC = 2.0 # m/s**2
-    # Real M1 Abrams max speed: 35.0
-    MAX_SPEED = 10.0 # m/s
-    MIN_SPEED = -4.0 # m/s
+    # real M1 Abrams acceleration: 2.22
+    ACC = 2.0  # m/s**2
+    # real M1 Abrams max speed: 35.0
+    MAX_SPEED = 10.0  # m/s
+    MIN_SPEED = -4.0  # m/s
 
     RELOAD_TIME = 10  # s
-    # How many shell hits before dead?
-    HITS_TO_DIE = 5 
+    # how many shell hits before dead?
+    # TODO: rename this since a single mine hit does two damage
+    HITS_TO_DIE = 5
 
     blist = "Unknown"
     tlist = "Unknown"
@@ -513,18 +444,16 @@ class Tank(bbutils.Shape):
             glNewList(Tank.blist, GL_COMPILE)
             exec_raw("../data/models/base.raw")
             glEndList()
-
-        # Do the same thing for the turret
         if Tank.tlist == "Unknown":
             Tank.tlist = glGenLists(1)
             glNewList(Tank.tlist, GL_COMPILE)
             exec_raw("../data/models/turret.raw")
             glEndList()
 
-        self.pos = np.array(pos) # position of the tank
-        self.tout = np.array(out) # which way the turret's facing
-        self.bout = np.array(out) # which way the base is facing
-        
+        self.pos = np.array(pos)  # position of the tank
+        self.tout = np.array(out)  # which way the turret's facing
+        self.bout = np.array(out)  # which way the base is facing
+
         # snapping back: turret turns to meet base
         # turning back: base turns to meet turret
         # these variables are true if either t or ctrl t have been pressed
@@ -535,23 +464,24 @@ class Tank(bbutils.Shape):
         self.speed = 0.0  # m / s, I hope
         self.bangle = 0.0
         self.tangle = 0.0
-        
+
         self.ip_bangle = 0
         self.ip_tangle = 0
 
         self.color = color
         self.name = name
-        self.hits_left = Tank.HITS_TO_DIE # How many more hits before dead?
+        self.hits_left = Tank.HITS_TO_DIE  # how many more hits before dead?
 
     def update(self):
         delta = self.delta_time()
 
         self.routine(delta, self.ip_bangle, self.ip_tangle)
 
-        # Repeated code from Player class, consider combining this in a single method
+        # TODO: check if the below comment is still true
+        # repeated code from Player class, consider combining this in a single method
         self.ip_bangle, self.ip_tangle = self.check_keypresses(self.keys)
 
-        # Make sure the angles don't get too high, this helps the turret animation
+        # make sure the angles don't get too high, this helps the turret animation
         self.tangle %= 360.0
         self.bangle %= 360.0
 
@@ -578,11 +508,15 @@ class Tank(bbutils.Shape):
 
     def routine(self, delta, ip_bangle=0.0, ip_tangle=0.0):
         if self.snapping_back and ip_tangle == 0.0:
-            ip_tangle, finished = self.snap_logic(self.bangle, self.tangle, delta * Tank.SNAP_SPEED)
+            ip_tangle, finished = self.snap_logic(
+                self.bangle, self.tangle, delta * Tank.SNAP_SPEED
+            )
             if finished:
                 self.snapping_back = False
         if self.turning_back and ip_bangle == 0.0:
-            ip_bangle, finished = self.snap_logic(self.tangle, self.bangle, delta * Tank.BROTATE)
+            ip_bangle, finished = self.snap_logic(
+                self.tangle, self.bangle, delta * Tank.BROTATE
+            )
             if finished:
                 self.turning_back = False
 
@@ -609,15 +543,15 @@ class Tank(bbutils.Shape):
             glCallList(gllist)
             glPopMatrix()
 
-        # Move the tank, according to the speed
+        # move the tank, according to the speed
         self.pos += self.bout * self.speed * delta
 
     def check_keypresses(self, keys):
         ip_bangle = 0.0
         ip_tangle = 0.0
-        
+
         if self.turning_back:
-            # Freeze for now
+            # freeze for now
             return (ip_bangle, ip_tangle)
 
         shift = keys[K_LSHIFT] or keys[K_RSHIFT]
@@ -629,20 +563,20 @@ class Tank(bbutils.Shape):
             elif ctrl:
                 ip_bangle = Tank.BROTATE
             else:
-                #self.tangle += Tank.BROTATE
+                # self.tangle += Tank.BROTATE
                 ip_tangle = Tank.BROTATE
-                #self.bangle += Tank.BROTATE
+                # self.bangle += Tank.BROTATE
                 ip_bangle = Tank.BROTATE
         elif keys[pygame.K_RIGHT]:
             if shift:
-                #self.tangle -= Tank.TROTATE
+                # self.tangle -= Tank.TROTATE
                 ip_tangle = -Tank.TROTATE
             elif ctrl:
                 ip_bangle = -Tank.BROTATE
             else:
-                #self.tangle -= Tank.BROTATE
+                # self.tangle -= Tank.BROTATE
                 ip_tangle = -Tank.BROTATE
-                #self.bangle -= Tank.BROTATE
+                # self.bangle -= Tank.BROTATE
                 ip_bangle = -Tank.BROTATE
         if keys[pygame.K_UP]:
             # speed up
@@ -707,65 +641,61 @@ class Tank(bbutils.Shape):
 
 
 class Player(Tank):
-
     def __init__(self, pos):
         # TODO: Upon startup, have the server providd players with an arbitrary bangle
         super().__init__(
             pos=pos, out=np.array((0.0, 0.0, 1.0)), name="Gandalf", color=(0, 1, 0)
         )
 
-        self.prev_keymap = pygame.key.get_pressed() # The value that pygame.key.get_pressed was last frame
+        # the value of pygame.key.get_pressed last frame
+        self.prev_keymap = pygame.key.get_pressed()
 
     def update(self):
-        # Make sure the angles don't get too high, this helps the turret animation
+        # make sure the angles don't get too high, this helps the turret animation
         self.tangle %= 360.0
         self.bangle %= 360.0
-        
-        # Keytable:
-        # To do this            Press this
+
+        # keytable:
+        # to do this            press this
         # --------------------------------
-        # Speed up              Up Arrow
-        # Slow down             Down Arrow
-        # Turn tank left        Left Arrow
-        # Turn tank right       Right Arrow
-        # Turn turret left      Shift+Left Arrow
-        # Turn turret right     Shift+Right Arrow
-        # Look up               Shift+Up Arrow
-        # Look down             Shift+Down Arrow
-        # Align turret with baset
-        # Stop                  s
+        # speed up              up arrow
+        # slow down             down arrow
+        # turn tank left        left arrow
+        # turn tank right       right arrow
+        # turn turret left      shift+left arrow
+        # turn turret right     shift+right arrow
+        # look up               shift+up arrow
+        # look down             shift+down arrow
+        # align turret with baset
+        # stop                  s
 
         keys = pygame.key.get_pressed()
 
         ip_bangle, ip_tangle = self.check_keypresses(keys)
-        # Routine inherited from Tank class
+        # routine inherited from Tank class
         self.routine(ip_bangle, ip_tangle)
 
-        # Check if the keypress state has changed since last time
+        # check if the keypress state has changed since last time
         if keys != self.prev_keymap:
             # TODO: tell the client to send the keymap to the server
             pass
 
-        # Remember the old keymap state
+        # remember the old keymap state
         self.prev_keymap = keys
 
 
 # TODO: make an abstract class containing shared code from Tank, Player, and Spectator
 class Spectator(bbutils.Shape):
-    """
-    Keep track of the vars used for spectating and calculate the out vars based on mouse movement.
-    """
-    
-    HEIGHT = 20.0 # m
-    SPEED = 10.0 # m/s
-    FAST_SPEED = 30.0 # m/s
-    
+    HEIGHT = 20.0  # m
+    SPEED = 10.0  # m/s
+    FAST_SPEED = 30.0  # m/s
+
     # speed of rising animation after death
-    RISE_SPEED = 0.2 # m/s
-    
+    RISE_SPEED = 0.2  # m/s
+
     # how fast to turn when left or right arrow keys are pressed
-    ROTATE_SPEED = 2 # deg / s
-    
+    ROTATE_SPEED = 2  # deg / s
+
     def __init__(self, pos, out, right, angle):
         super().__init__()
 
@@ -774,18 +704,18 @@ class Spectator(bbutils.Shape):
 
     def update(self):
         delta = super().delta_time()
-        
-        # "Rise" animation
+
+        # "rise" animation
         if self.pos[1] < self.HEIGHT:
             self.pos[1] = min(self.pos[1] + (self.RISE_SPEED * delta), self.HEIGHT)
-        
+
         keys = pygame.key.get_pressed()
-               
+
         ip_r = 0.0
         if keys[pygame.K_LEFT]:
             ip_r = self.ROTATE_SPEED * delta
         elif keys[pygame.K_RIGHT]:
-            ip_r = -self.ROTATE_SPEED * delta        
+            ip_r = -self.ROTATE_SPEED * delta
         if ip_r:
             self.out = bbutils.yaw(ip_r, self.out, constants.UP, self.right)
 
@@ -807,63 +737,75 @@ class Spectator(bbutils.Shape):
 
 
 class VictoryBanner:
-    """ A cute little victory banner when you win. """
-    
+    """A cute little victory banner when you win."""
+
     # length of the zoom animation
     ZOOM_DURATION = 0.3  # s
     # scale of the banner at the beginning of the animation
-    ZOOM_SCALE = 20.0 # at the beginning
+    ZOOM_SCALE = 20.0  # at the beginning
     # final scale factor at the end of the animation
     FINAL_SCALE = 1.0
     DIFF_SCALE = FINAL_SCALE - ZOOM_SCALE
-    
+
     def __init__(self, screen):
-        # Generate Texture
+        # generate texture
         glEnable(GL_TEXTURE_2D)
         self.texture = glGenTextures(1)
         glBindTexture(GL_TEXTURE_2D, self.texture)
         tex_image = pygame.image.load("../data/images/victory.png")
         self.width = tex_image.get_width()
         self.height = tex_image.get_height()
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA,
-                     self.width, self.height,
-                     0, GL_RGBA, GL_UNSIGNED_BYTE,
-                     pygame.image.tostring(tex_image, "RGBX", 1))
+        glTexImage2D(
+            GL_TEXTURE_2D,
+            0,
+            GL_RGBA,
+            self.width,
+            self.height,
+            0,
+            GL_RGBA,
+            GL_UNSIGNED_BYTE,
+            pygame.image.tostring(tex_image, "RGBX", 1),
+        )
         glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST)
         glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST)
-        
+
         self.spawn_time = time.time()
-        
+
     def draw(self):
-        """ Draw the text overlay. I stole 99% of this class from Astrocrash."""
+        """Draw the text overlay. I stole 99% of this class from Astrocrash."""
         if current_time := time.time() < self.spawn_time + self.ZOOM_DURATION:
             zoomscale = max(
                 self.FINAL_SCALE,
-                self.DIFF_SCALE * ((current_time - self.spawn_time) / self.ZOOM_DURATION)
+                self.DIFF_SCALE
+                * ((current_time - self.spawn_time) / self.ZOOM_DURATION),
             )
         else:
             zoomscale = 1
-        
+
         glPushMatrix()
         glLoadIdentity()
-        
+
         half_width = int(SCR[0] / 2)
         half_height = int(SCR[1] / 2)
-        
+
         half_texwidth = int(self.width / 2) * zoomscale
         half_texheight = int(self.height / 2) * zoomscale
-        
-        pts = window2view([((half_width - half_texwidth), (half_height - half_texheight)),
-                           ((half_width - half_texwidth), (half_height + half_texheight)),
-                           ((half_width + half_texwidth), (half_height + half_texheight)),
-                           ((half_width + half_texwidth), (half_height - half_texheight))])
-        
-        # Turn on alpha blending
+
+        pts = window2view(
+            [
+                ((half_width - half_texwidth), (half_height - half_texheight)),
+                ((half_width - half_texwidth), (half_height + half_texheight)),
+                ((half_width + half_texwidth), (half_height + half_texheight)),
+                ((half_width + half_texwidth), (half_height - half_texheight)),
+            ]
+        )
+
+        # turn on alpha blending
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
         glEnable(GL_BLEND)
 
-        # Draw the model
-        glColor(1.0, 1.0, 1.0) # ?
+        # draw the model
+        glColor(1.0, 1.0, 1.0)  # ?
         glDisable(GL_LIGHTING)
         glBindTexture(GL_TEXTURE_2D, self.texture)
         glBegin(GL_QUADS)
@@ -873,21 +815,21 @@ class VictoryBanner:
         glEnd()
         glEnable(GL_LIGHTING)
 
-        # Turn off alpha blending
         glDisable(GL_BLEND)
-
         glPopMatrix()
 
 
 class LifeBar:
-    """ Overlay to show how much armor you have left. """
+    """Overlay to show how much armor you have left."""
 
-    IMGS = [pygame.image.load("../data/images/AAGH5.png"),
-            pygame.image.load("../data/images/AAGH4.png"),
-            pygame.image.load("../data/images/AAGH3.png"),
-            pygame.image.load("../data/images/AAGH2.png"),
-            pygame.image.load("../data/images/AAGH1.png"),
-            pygame.image.load("../data/images/blank.png")]
+    IMGS = [
+        pygame.image.load("../data/images/AAGH5.png"),
+        pygame.image.load("../data/images/AAGH4.png"),
+        pygame.image.load("../data/images/AAGH3.png"),
+        pygame.image.load("../data/images/AAGH2.png"),
+        pygame.image.load("../data/images/AAGH1.png"),
+        pygame.image.load("../data/images/blank.png"),
+    ]
     MARGIN = 50
     UNIT = 200
 
@@ -897,15 +839,14 @@ class LifeBar:
         self.newimg_stuff(screen)
 
     def draw(self):
-        """ Draw the LifeBar overlay. """
+        """Draw the LifeBar overlay."""
 
         glPushMatrix()
         glLoadIdentity()
         glCallList(self.gllist)
         glPopMatrix()
 
-    def change_image(self, screen, weapon = "tank"):
-
+    def change_image(self, screen, weapon="tank"):
         if weapon == "tank":
             increment = 1
         elif weapon == "mine":
@@ -921,28 +862,38 @@ class LifeBar:
 
     # TODO: find a better name for this method
     def newimg_stuff(self, screen):
-
-        # Generate Texture
+        # generate texture
         glEnable(GL_TEXTURE_2D)
         self.texture = glGenTextures(1)
         glBindTexture(GL_TEXTURE_2D, self.texture)
         try:
             self.current_image = LifeBar.IMGS[self.index]
-        except(IndexError):
+        except IndexError:
             pass
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA,
-                     self.current_image.get_width(),
-                     self.current_image.get_height(),
-                     0, GL_RGBA, GL_UNSIGNED_BYTE,
-                     pygame.image.tostring(self.current_image, "RGBX", 1))
+        glTexImage2D(
+            GL_TEXTURE_2D,
+            0,
+            GL_RGBA,
+            self.current_image.get_width(),
+            self.current_image.get_height(),
+            0,
+            GL_RGBA,
+            GL_UNSIGNED_BYTE,
+            pygame.image.tostring(self.current_image, "RGBX", 1),
+        )
         glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST)
         glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST)
 
-        # Draw the texture into a display list
-        pts = [(screen[0] - LifeBar.MARGIN - LifeBar.UNIT, (screen[1] - LifeBar.MARGIN - LifeBar.UNIT)),
-               (screen[0] - LifeBar.MARGIN - LifeBar.UNIT, (screen[1] - LifeBar.MARGIN)),
-               (screen[0] - LifeBar.MARGIN, screen[1] - LifeBar.MARGIN),
-               (screen[0] - LifeBar.MARGIN, (screen[1] - LifeBar.MARGIN - LifeBar.UNIT))]
+        # draw the texture into a display list
+        pts = [
+            (
+                screen[0] - LifeBar.MARGIN - LifeBar.UNIT,
+                screen[1] - LifeBar.MARGIN - LifeBar.UNIT,
+            ),
+            (screen[0] - LifeBar.MARGIN - LifeBar.UNIT, screen[1] - LifeBar.MARGIN),
+            (screen[0] - LifeBar.MARGIN, screen[1] - LifeBar.MARGIN),
+            (screen[0] - LifeBar.MARGIN, screen[1] - LifeBar.MARGIN - LifeBar.UNIT),
+        ]
         glPushMatrix()
         glLoadIdentity()
         pts = window2view(pts)
@@ -950,12 +901,12 @@ class LifeBar:
         self.gllist = glGenLists(1)
         glNewList(self.gllist, GL_COMPILE)
 
-        # Turn on alpha blending
+        # turn on alpha blending
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
         glEnable(GL_BLEND)
 
-        # Draw the model
-        glColor(1.0, 1.0, 1.0) # ?
+        # draw the model
+        glColor(1.0, 1.0, 1.0)  # ?
         glDisable(GL_LIGHTING)
         glBindTexture(GL_TEXTURE_2D, self.texture)
         glBegin(GL_QUADS)
@@ -970,15 +921,12 @@ class LifeBar:
         glEnd()
         glEnable(GL_LIGHTING)
 
-        # Turn off alpha blending
         glDisable(GL_BLEND)
-
         glEndList()
         glPopMatrix()
 
 
 class ReloadingBar:
-
     RISE_DURATION = 0.35  # s
     HEIGHT = 10.0  # px
     COLOR = [0.3, 0.05, 0.0]
@@ -988,39 +936,49 @@ class ReloadingBar:
         self.height = 0
 
     def fire(self):
-        """ Call right after the player fires. """
+        """Call right after the player fires."""
 
         self.width = SCR[0]
         self.height = 0
         self.spawn_time = time.time()
 
     def draw(self, reloading):
-        """ Draw the reloading bar """
+        """Draw the reloading bar"""
         current_time = time.time()
 
         # if the player is not currently reloading, do not draw anything
         if current_time > reloading:
             return
 
-        # Slide-up animation
-        if (self.width > 0.0) and (self.height < ReloadingBar.HEIGHT) \
-           and (self.width > ReloadingBar.HEIGHT):
-            self.height = self.HEIGHT * ((time.time() - self.spawn_time) / self.RISE_DURATION)
+        # slide-up animation
+        if (
+            self.width > 0.0
+            and self.height < ReloadingBar.HEIGHT
+            and self.width > ReloadingBar.HEIGHT
+        ):
+            self.height = self.HEIGHT * (
+                (time.time() - self.spawn_time) / self.RISE_DURATION
+            )
 
-        # Slide-down animation
+        # slide-down animation
         if self.width <= ReloadingBar.HEIGHT and self.width > 0.0:
-            self.height = self.HEIGHT * (1 - ((time.time() - self.spawn_time) / self.RISE_DURATION))
+            self.height = self.HEIGHT * (
+                1 - ((time.time() - self.spawn_time) / self.RISE_DURATION)
+            )
 
         if reloading > 0.0:
             self.width = SCR[0] * ((reloading - current_time) / Tank.RELOAD_TIME)
 
         # TODO: remove the int(round())s and see if anything breaks
-        pts = np.array([(0.0, int(round(self.height)), 0.0),
-                        (self.width, int(round(self.height)), 0.0),
-                        (self.width, 0, 0.0),
-                        (0.0, 0, 0.0),
-                        (0.0, int(round(self.height)), 0.0)
-                        ])
+        pts = np.array(
+            [
+                (0.0, int(round(self.height)), 0.0),
+                (self.width, int(round(self.height)), 0.0),
+                (self.width, 0, 0.0),
+                (0.0, 0, 0.0),
+                (0.0, int(round(self.height)), 0.0),
+            ]
+        )
 
         glPushMatrix()
         glLoadIdentity()
@@ -1068,7 +1026,7 @@ class Game:
 
 
 async def main(host, no_music):
-    global playgame, won, SCR, explosion, mines, allshapes, spectating
+    global won, SCR, explosion, mines, allshapes, spectating
 
     print("Welcome to Bang Bang " + constants.VERSION)
 
@@ -1076,14 +1034,16 @@ async def main(host, no_music):
     await game.initialize(host)
 
     # initialize pygame to display OpenGL
-    screen = pygame.display.set_mode((0, 0), OPENGL|DOUBLEBUF|FULLSCREEN|HWSURFACE)
+    screen = pygame.display.set_mode(
+        (0, 0), OPENGL | DOUBLEBUF | FULLSCREEN | HWSURFACE
+    )
     SCR = (screen.get_width(), screen.get_height())
-    pygame.mouse.set_visible(False) # hide the mouse
-    
+    pygame.mouse.set_visible(False)  # hide the mouse
+
     # start music ASAP if the user wants it
     if not no_music:
         pygame.mixer.music.load("../data/sound/theme.mp3")
-        pygame.mixer.music.play(-1) # play the theme song on loop
+        pygame.mixer.music.play(-1)  # play the theme song on loop
 
     # set the window title
     pygame.display.set_caption("Bang Bang " + constants.VERSION)
@@ -1108,14 +1068,14 @@ async def main(host, no_music):
 
     # set up the camera lens
     glMatrixMode(GL_PROJECTION)
-    gluPerspective(45.0, float(SCR[0])/float(SCR[1]), 0.1, Ground.DIAGONAL)
+    gluPerspective(45.0, float(SCR[0]) / float(SCR[1]), 0.1, Ground.DIAGONAL)
     glMatrixMode(GL_MODELVIEW)
-    
+
     # NATURE
 
     # make the sky blue
     glClearColor(0.25, 0.89, 0.92, 1.0)
-    
+
     # make the ground
     ground = Ground()
     ground.gen_list()
@@ -1133,21 +1093,20 @@ async def main(host, no_music):
 
     # Make allshapes
     player = Player(np.zeros(3, dtype=float))
-    allshapes = [ground, player] + hills + trees + tanks # get all of the shapes
+    allshapes = [ground, player] + hills + trees + tanks  # get all of the shapes
     drot = np.radians(1.0)
-    # LifeBar
     lifebar = LifeBar(SCR)
 
-    # Groups
+    # groups
     shells = []
     playershells = []
     mines = []
 
     reloadingbar = ReloadingBar()
-    
+
     # this variable is assigned when this player wins
     victory_banner = None
-    
+
     # TODO: implement a reloading timer for dropping mines
     # It should probably not be implemented here in the main loop, but that's where
     # this comment is because it used to be implemented here
@@ -1170,7 +1129,7 @@ async def main(host, no_music):
 
     while end_time is None or frame_end_time < end_time:
         frame_start_time = frame_end_time
-        
+
         # listen for input device events
         pygame.event.pump()
 
@@ -1179,19 +1138,19 @@ async def main(host, no_music):
             # np.mean(fps_history) is the average length, in seconds, of the past
             # constants.FPS_HISTORY_LENGTH frames
             print(f"{int(round(1 / np.mean(fps_history)))} FPS")
-            
+
         # quit game on window close or escape key
         if pygame.event.get(pygame.QUIT) or pygame.key.get_pressed()[pygame.K_ESCAPE]:
             # end right now
             # this breaks out of the while loop
             end_time = frame_start_time
 
-        # Clear Everything
+        # clear everything
         glLoadIdentity()
-        glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT)
-               
-        # Set up the observer
-        # Choose the camera attributes based on whether we're playing or spectating
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
+
+        # set up the observer
+        # choose the camera attributes based on whether we're playing or spectating
         if spectating:
             pos = spectator.pos
             out = spectator.out
@@ -1200,34 +1159,34 @@ async def main(host, no_music):
             pos[1] = 6.0
             out = player.tout
         at = out + pos
-        
-        # We can't do gluLookAt(*pos, *at, *up) in Python 2.
-        # https://stackoverflow.com/questions/53000998/unpacking-multiple-function-arguments-in-python-2
-        # this means we'll have to do gluLookAt(*(pos + at + up)). And convert everything to lists as well.
+
         gluLookAt(*pos, *at, *constants.UP)
-                                                                
-        # Delete to avoid me making a bug later
-        del pos, out
 
         for shape in allshapes:
             shape.update()
 
-        # Make bullet on Space
+        # make bullet on space
         # TODO: add networking to this
-        if pygame.key.get_pressed()[pygame.K_SPACE] and reloading < time.time() \
-           and player.alive and end_time is None:
+        if (
+            pygame.key.get_pressed()[pygame.K_SPACE]
+            and reloading < time.time()
+            and player.alive
+            and end_time is None
+        ):
             temp_tout = player.tout + (player.bout * player.speed) / Shell.SPEED
-            temp_pos = np.array(player.pos) + Shell.START_DISTANCE * np.array(player.tout)
+            temp_pos = np.array(player.pos) + Shell.START_DISTANCE * np.array(
+                player.tout
+            )
             shell = Shell(temp_pos, temp_tout, player.tangle, "Gandalf")
             shells.append(shell)
             playershells.append(shell)
             allshapes.append(shell)
 
-            # Set reloading bar to full
+            # set reloading bar to full
             reloadingbar.fire()
 
             reloading = time.time() + Tank.RELOAD_TIME
-            
+
         # TODO: add networking to this
         if pygame.key.get_pressed()[pygame.K_b] and player.alive and end_time is None:
             mine = Mine(player.name, player.pos, player.color)
@@ -1236,34 +1195,33 @@ async def main(host, no_music):
             mine_reload = Mine.RELOAD
 
             if (not won) and (not spectating):
-                # We died, now enter spectate mode.
+                # we died, now enter spectate mode.
                 spectating = True
 
-                spectator = Spectator(player.pos, player.tout, player.up, player.tright, player.tangle)
+                spectator = Spectator(
+                    player.pos, player.tout, player.up, player.tright, player.tangle
+                )
                 allshapes.append(spectator)
             # TODO: simplify this confusing endgame logic
             if (len(tanks) == 1) or won:
                 end_time = frame_start_time + 3
                 pygame.mixer.music.fadeout(3000)
 
-        # Check for collisions
-        # The ones that don't involve shells aren't causing "the blackout"
+        # check for collisions
         for hill in hills:
-            # Tank vs. Hill
+            # tank vs. hill
             if collide_hill(player, hill, False, player.bout):
-
                 # Calculate a vector away from the hill. Does that make sense? :P
-                #away = bbutils.normalize(hill.pos - player.pos)
+                # away = bbutils.normalize(hill.pos - player.pos)
                 away = bbutils.normalize(player.pos - hill.pos)
-                
-                # Back up the player so they aren't permanently stuck
-                # Go a certain distance away from the hill
+
+                # back up the player so they aren't permanently stuck
                 player.pos += away * 10
                 player.speed = 0.0
 
-            # Shell vs. hill
+            # shell vs. hill
             for shell in shells:
-                if collide_hill(shell, hill, is_shell = True):
+                if collide_hill(shell, hill, is_shell=True):
                     shell.hill()
 
         for shell in playershells:
@@ -1271,16 +1229,18 @@ async def main(host, no_music):
             pos[1] = 0.0
             pos = DummyPos(pos)
             for tank in tanks:
-                if collide_tank(pos, tank, tank.bout) and (not shell.hit_hill) and (shell.name != tank.name):
+                if (
+                    collide_tank(pos, tank, tank.bout)
+                    and (not shell.hit_hill)
+                    and (shell.name != tank.name)
+                ):
                     explosion.play()
                     shell.die()
-                    
+
         for mine in mines:
             for tank in tanks:
                 if collide_mine(mine, tank, tank.bout) and mine.name != tank.name:
                     mine.die()
-                    Mine.EXPLODE.play()
-                    
                     deadmine_id = mine.id
 
         for tree in trees:
@@ -1306,13 +1266,13 @@ async def main(host, no_music):
                     tank.pos += player.bout * COLLISION_SPRINGBACK
                     for hill in hills:
                         if collide_hill(tank, hill, False, tank.bout):
-                            tank.pos = (20 + COLLISION_SPRINGBACK) * \
-                                         bbutils.normalize(tank.pos - hill.pos) + \
-                                         hill.pos
+                            tank.pos = (20 + COLLISION_SPRINGBACK) * bbutils.normalize(
+                                tank.pos - hill.pos
+                            ) + hill.pos
                         if collide_hill(player, hill, False, player.bout):
-                            player.pos = (20 + COLLISION_SPRINGBACK) * \
-                                         bbutils.normalize(player.pos - hill.pos) + \
-                                         hill.pos
+                            player.pos = (
+                                20 + COLLISION_SPRINGBACK
+                            ) * bbutils.normalize(player.pos - hill.pos) + hill.pos
                 for tree in trees:
                     if collide_tank(tree, tank, tank.bout) and not tree.falling.any():
                         tree.fall(bad_tank.bright, 0.5)
@@ -1326,18 +1286,18 @@ async def main(host, no_music):
                 if shell.pos[i] > Ground.HW or shell.pos[i] < -Ground.HW:
                     shell.hill()
 
-        # Draw victory banner, if it exists
+        # draw victory banner, if it exists
         # a better way to do this might be to use hasattr(victory_banner, "draw")
         if victory_banner is not None:
             victory_banner.draw()
 
-        # Update LifeBar
+        # update lifebar
         if player.hits_left > 0:
             lifebar.draw()
 
-        # Update ReloadingBar
+        # update reloadingbar
         reloadingbar.draw(reloading)
-        
+
         pygame.display.flip()
 
         # discard the oldest frame length and add the newest one

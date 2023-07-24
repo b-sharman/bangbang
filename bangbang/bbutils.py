@@ -14,6 +14,7 @@ HW_CONST = 125
 
 Message = typing.NewType("Message", dict)
 
+
 class DummyPos(object):
     def __init__(self, pos):
         self.pos = np.array(pos)
@@ -36,7 +37,9 @@ def normalize(v):
 def yaw(angle, out, up, right):
     """Returns new out vector after rotating angle degrees around UP."""
     # up fixed, out/right change
-    return normalize(np.cos(np.radians(angle))*out + np.sin(np.radians(angle))*right)
+    return normalize(
+        np.cos(np.radians(angle)) * out + np.sin(np.radians(angle)) * right
+    )
 
 
 def a2tf(array):
