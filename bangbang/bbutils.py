@@ -1,3 +1,5 @@
+# TODO: add type hints to the functions in this file
+
 import json
 import random
 import time
@@ -14,30 +16,21 @@ Message = typing.NewType("Message", dict)
 
 
 def mag(v):
-    """
-    Returns the magnitude of a vector
-    """
+    """Return the magnitude of a vector."""
     return np.sqrt((v**2).sum())
 
 
 def normalize(v):
-    """
-    Normalizes a vector
-    """
+    """Return a normalized vector."""
     return v / mag(v)
 
 
 def yaw(angle, out, up, right):
-    """Returns new out vector after rotating angle degrees around UP."""
+    """Return new out vector after rotating `angle` degrees around `up`."""
     # up fixed, out/right change
     return normalize(
         np.cos(np.radians(angle)) * out + np.sin(np.radians(angle)) * right
     )
-
-
-def a2tf(array):
-    """Convert an array into a tuple of floats."""
-    return tuple([float[x] for x in array])
 
 
 def read_obj_file(filename):
@@ -90,11 +83,7 @@ def read_obj_file(filename):
 
 
 def draw_model(vertices, faces, normals):
-    """
-    Draw a 3d model from vertices, faces, and normals.
-
-    You can get them from a .ply file by calling read_ply_file().
-    """
+    """Draw a 3d model from vertices, faces, and normals."""
 
     # Draw the model
     for face in faces:
@@ -191,7 +180,7 @@ def is_message_valid(message: Message) -> None:
     # be worthwhile to consider an external data validation library like cerberus.
 
     # must be a dict
-    if type(message) != dict:
+    if not isinstance(message, dict):
         raise ValueError("message is not a dict")
 
     # must have type
