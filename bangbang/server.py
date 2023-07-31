@@ -9,6 +9,7 @@ from typing import Any
 import aioconsole
 import numpy as np
 
+import utils_3d
 import bbutils
 import collisions
 import constants
@@ -49,9 +50,7 @@ class Tank(bbutils.Shape):
         self.pos = np.array(pos)
 
         # don't know if this is correct - will need some trial and error
-        out = bbutils.yaw(
-            angle, np.array((1.0, 0.0, 0.0)), constants.UP, np.array((0.0, 0.0, 1.0))
-        )
+        out = utils_3d.yaw(angle, np.array((1.0, 0.0, 0.0)), np.array((0.0, 0.0, 1.0)))
         self.bout = out.copy()
         self.tout = out.copy()
 
@@ -166,10 +165,10 @@ class Tank(bbutils.Shape):
         # adjust base and turret angles and out vectors if they've changed
         if ip_bangle:
             self.bangle += ip_bangle * delta
-            self.bout = bbutils.yaw(ip_bangle, self.bout, constants.UP, self.bright)
+            self.bout = utils_3d.yaw(ip_bangle, self.bout, self.bright)
         if ip_tangle:
             self.tangle += ip_tangle * delta
-            self.tout = bbutils.yaw(ip_tangle, self.tout, constants.UP, self.tright)
+            self.tout = utils_3d.yaw(ip_tangle, self.tout, self.tright)
 
         # make sure the angles don't get too high, this helps the turret animation
         self.bangle %= 360.0
@@ -197,12 +196,12 @@ class Tank(bbutils.Shape):
 
     @property
     def bright(self):
-        return bbutils.normalize(np.cross(constants.UP, self.bout))
+        return utils_3d.normalize(np.cross(constants.UP, self.bout))
 
     # TODO: if these vectors are actually left instead of right, rename them
     @property
     def tright(self):
-        return bbutils.normalize(np.cross(constants.UP, self.tout))
+        return utils_3d.normalize(np.cross(constants.UP, self.tout))
 
 
 class Server:
@@ -351,7 +350,7 @@ class Server:
                 # can't be too close to a tank
                 if valid:
                     for tank_pos in tank_poses:
-                        if bbutils.mag(pos - tank_pos) < constants.MIN_SPAWN_DIST:
+                        if utils_3d.mag(pos - tank_pos) < constants.MIN_SPAWN_DIST:
                             valid = False
                             break
             tank_poses.append(pos)
