@@ -111,7 +111,7 @@ class Game:
         # used to block opening the window until the game has started
         self.start_event = asyncio.Event()
 
-        self.input_handler = PlayerInputHandler(self.client)
+        self.input_handler = PlayerInputHandler(self)
         # id of the player playing on this computer
         # assigned upon receiving an ID message
         self.player_id = None
@@ -149,7 +149,7 @@ class Game:
                 self.player_id = message["id"]
 
             case constants.Msg.START:
-                print("Starting now!")
+                logging.debug("starting")
                 for client_id, state in message["states"]:
                     self.players[client_id] = PlayerData(state)
 
@@ -162,7 +162,7 @@ class Game:
                 # allow the main game loop to start
                 self.start_event.set()
                 # start listening for keyboard input
-                tg.create_task(self.input_handler.start())
+                tg.create_task(self.input_handler.run())
 
 
 class Tree(bbutils.Shape):
@@ -565,8 +565,8 @@ class Spectator(bbutils.Shape):
 class PlayerInputHandler:
     """Sends keyboard input to the server."""
 
-    def __init__(self, client: Client) -> None:
-        self.client = client
+    def __init__(self, game: Game) -> None:
+        self.game = game
 
         # the value of pygame.key.get_pressed last frame
         self.prev_keymap = pygame.key.get_pressed()
@@ -574,24 +574,24 @@ class PlayerInputHandler:
         # to avoid sending the same set of actions twice in a row
         self.prev_actions = None
 
-    async def start(self) -> None:
-        """Start everything the player needs to do during the game."""
-        while True:
-            await self.run()
-
     async def run(self) -> None:
         """Interface to send requests to the server."""
         keys = pygame.key.get_pressed()
-        actions: set[constants.Action] = {
+        actions: list[constants.Action] = [
             action
             for key_combo, action in constants.KEYMAP
             if all(
                 {keys[k] for k in key_combo}
             )  # if all the keys in the combo are pressed
-        }
+        ]
         if actions != self.prev_actions:
-            await self.client.send_actions(actions)
+            await self.game.client.send_actions(actions)
             self.prev_actions = actions
+
+        # recursion!
+        # TODO: make a constant for this magic number
+        await asyncio.sleep(0.01)
+        await self.run()
 
 
 class VictoryBanner:
@@ -605,7 +605,7 @@ class VictoryBanner:
     FINAL_SCALE = 1.0
     DIFF_SCALE = FINAL_SCALE - ZOOM_SCALE
 
-    def __init__(self, screen):
+    def __init__(self):
         # generate texture
         glEnable(GL_TEXTURE_2D)
         self.texture = glGenTextures(1)
@@ -703,7 +703,7 @@ class LifeBar:
         glCallList(self.gllist)
         glPopMatrix()
 
-    def change_image(self, screen, weapon="tank"):
+    def change_image(self, weapon="tank"):
         if weapon == "tank":
             increment = 1
         elif weapon == "mine":
@@ -852,24 +852,9 @@ class ReloadingBar:
         glPopMatrix()
 
 
-async def main(host, no_music):
-    print("Welcome to Bang Bang " + constants.VERSION)
-
-    game = Game()
-    async with asyncio.TaskGroup() as tg:
-        try:
-            tg.create_task(game.initialize(host))
-        except (socket.gaierror, OSError):
-            logging.error(f"could not connect to {host}")
-            exit()
-
-        # wait until the server sends a start signal
-        await game.start_event.wait()
-        await rest_of_main(game, no_music)
-
-
-async def rest_of_main(game, no_music):
-    global won, SCR, explosion, mines, allshapes, spectating
+async def initialize_graphics():
+    """Set up the pygame and OpenGL environments, generate some display lists."""
+    global SCR
 
     # initialize pygame to display OpenGL
     screen = pygame.display.set_mode(flags=OPENGL | DOUBLEBUF | FULLSCREEN | HWSURFACE)
@@ -926,17 +911,17 @@ async def rest_of_main(game, no_music):
 
     hills = [Hill(pos) for pos in game.hill_poses]
     trees = [Tree(pos) for pos in game.tree_poses]
-    tanks = [Tank(game, player_data["client_id"]) for player_data in game.players]
+    tanks = [Tank(game, client_id) for client_id in game.players]
 
     # Make allshapes
-    allshapes = [player] + hills + trees + tanks  # get all of the shapes
+    allshapes = hills + trees + tanks  # get all of the shapes
     drot = np.radians(1.0)
     lifebar = LifeBar()
 
     # groups
-    shells = set()
-    playershells = set()
-    mines = set()
+    shells = []
+    playershells = []
+    mines = []
 
     reloadingbar = ReloadingBar()
 
@@ -952,6 +937,30 @@ async def rest_of_main(game, no_music):
     # TODO: rename this variable and the wav file to something like "hit_sound"
     explosion = pygame.mixer.Sound("../data/sound/explosion.wav")
 
+
+async def main(host, no_music):
+    print("Welcome to Bang Bang " + constants.VERSION)
+
+    game = Game()
+    async with asyncio.TaskGroup() as tg:
+        try:
+            tg.create_task(game.initialize(host))
+        except (socket.gaierror, OSError):
+            logging.error(f"could not connect to {host}")
+            exit()
+
+        # wait until the server sends a start signal
+        await game.start_event.wait()
+        await rest_of_main(game, no_music)
+
+
+async def rest_of_main(game, no_music):
+    global won, explosion, mines, allshapes, spectating
+
+    # run CPU-intensive code in a non-blocking way
+    # https://docs.python.org/3/library/asyncio-dev.html#running-blocking-code
+    await asyncio.get_running_loop().run_in_executor(None, initialize_graphics)
+
     # reloading is the time at which the player can fire again
     reloading = time.time()
 
@@ -965,6 +974,7 @@ async def rest_of_main(game, no_music):
 
     while end_time is None or frame_end_time < end_time:
         frame_start_time = frame_end_time
+        print("entered main loop")
 
         # listen for input device events
         pygame.event.pump()

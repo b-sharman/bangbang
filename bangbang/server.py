@@ -270,7 +270,7 @@ class Server:
                     }
                 )
             # TODO: make a constant for this magic number
-            await asyncio.sleep(0.005)
+            await asyncio.sleep(0.05)
 
     def setup_env(
         self,

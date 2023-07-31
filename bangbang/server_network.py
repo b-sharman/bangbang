@@ -145,6 +145,6 @@ class Server:
         websockets.broadcast([c.ws for c in self.clients], data)
         logging.debug(f"broadcasted the following: {data}")
 
-    async def start_game(self) -> None:
+    def start_game(self) -> None:
         """Call this method when the game starts."""
         self.game_running = True
