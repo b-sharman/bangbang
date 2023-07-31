@@ -55,10 +55,10 @@ class Client:
             async with asyncio.TaskGroup() as tg:
                 created_name_task = False
 
-                while True:
+                async for raw_message in self.ws:
                     try:
                         # waits until data is received from the server
-                        message = json.loads(await self.ws.recv())
+                        message = json.loads(raw_message)
                     except websockets.exceptions.ConnectionClosed:
                         if not created_name_task:
                             print(
