@@ -13,8 +13,8 @@ from pygame.constants import *
 
 from OpenGL.GL import *
 from OpenGL.GLU import *
-from OpenGL.GLUT import *
 
+import utils_3d
 import bbutils
 from client import Client, PlayerData
 import constants
@@ -32,76 +32,6 @@ COLLISION_SPRINGBACK = 10.0  # m
 # TODO: only initialize the pygame modules in use to speed up loading times
 # https://www.pygame.org/docs/ref/pygame.html#pygame.init
 pygame.init()
-
-
-def window2view(pts):
-    """Convert window coordinates to 3D coordinates."""
-    model = glGetDoublev(GL_MODELVIEW_MATRIX)
-    projection = glGetDoublev(GL_PROJECTION_MATRIX)
-    viewport = glGetIntegerv(GL_VIEWPORT)
-
-    retval = [
-        gluUnProject(pt[0], pt[1], 0.001, model, projection, viewport) for pt in pts
-    ]
-
-    return retval
-
-
-def exec_raw(full_name):
-    """
-    Read in a triangular representation of a piece for rendering.
-
-    Uses a custom format which is much faster than stl or ogl.gz reading.
-    """
-
-    try:
-        rawdata = np.fromfile(full_name, np.float32)
-    except IOError:
-        print(("Couldn't find", full_name))
-        exit()
-
-    raw_length = len(rawdata) // 2
-    normals = np.reshape(rawdata[raw_length:], (raw_length // 3, 3))
-    vertices = np.reshape(rawdata[:raw_length], (raw_length // 3, 3))
-    glEnableClientState(GL_VERTEX_ARRAY)
-    glEnableClientState(GL_NORMAL_ARRAY)
-
-    glVertexPointerf(vertices)
-    glNormalPointerf(normals)
-    glDrawArrays(GL_TRIANGLES, 0, len(vertices))
-
-    glDisableClientState(GL_VERTEX_ARRAY)
-    glDisableClientState(GL_NORMAL_ARRAY)
-
-
-def setup_explosion():
-    """Create gllists for Explosions and MineExplosions."""
-    if Explosion.base_gllists == "Unknown":
-        Explosion.base_gllists = []
-        for i in range(1, Explosion.NO_EXPLOSION_FRAMES + 1):
-            gllist = glGenLists(1)
-            glNewList(gllist, GL_COMPILE)
-            exec_raw(f"../data/models/explosions/base_explosion_{i:06}.raw")
-            glEndList()
-            Explosion.base_gllists.append(gllist)
-
-    if Explosion.turret_gllists == "Unknown":
-        Explosion.turret_gllists = []
-        for i in range(1, Explosion.NO_EXPLOSION_FRAMES + 1):
-            gllist = glGenLists(1)
-            glNewList(gllist, GL_COMPILE)
-            exec_raw(f"../data/models/explosions/turret_explosion_{i:06}.raw")
-            glEndList()
-            Explosion.turret_gllists.append(gllist)
-
-    if MineExplosion.gllists == "Unknown":
-        MineExplosion.gllists = []
-        for i in range(1, MineExplosion.MAX_FRAMES + 1):
-            gllist = glGenLists(1)
-            glNewList(gllist, GL_COMPILE)
-            exec_raw(f"../data/models/explosions/mine_explosion_{i:06}.raw")
-            glEndList()
-            MineExplosion.gllists.append(gllist)
 
 
 class Game:
@@ -175,7 +105,7 @@ class Tree(bbutils.Shape):
         if Tree.gllist == "Unknown":
             Tree.gllist = glGenLists(1)
             glNewList(Tree.gllist, GL_COMPILE)
-            exec_raw("../data/models/tree_lowpoly.raw")
+            utils_3d.exec_raw("../data/models/tree_lowpoly.raw")
             glEndList()
 
         self.pos = np.array(pos)
@@ -216,7 +146,7 @@ class Hill(bbutils.Shape):
         if Hill.gllist == "Unknown":
             Hill.gllist = glGenLists(1)
             glNewList(Hill.gllist, GL_COMPILE)
-            exec_raw("../data/models/hill2.raw")
+            utils_3d.exec_raw("../data/models/hill2.raw")
             glEndList()
 
         self.pos = np.array(pos)
@@ -265,9 +195,6 @@ class Ground(bbutils.Shape):
 
 
 class Explosion(bbutils.Shape):
-    # so that the first explosion will set up the display lists
-    base_gllists = "Unknown"
-    turret_gllists = "Unknown"
 
     NO_EXPLOSION_FRAMES = 150
     TARGET_FPS = 50
@@ -304,7 +231,6 @@ class Explosion(bbutils.Shape):
 
 
 class MineExplosion(Explosion):
-    gllists = "Unknown"
     MAX_FRAMES = 50
 
     def __init__(self, pos, color):
@@ -344,12 +270,12 @@ class Shell(bbutils.Shape):
         if Shell.gllist == "Unknown":
             Shell.gllist = glGenLists(1)
             glNewList(Shell.gllist, GL_COMPILE)
-            exec_raw("../data/models/shell.raw")
+            utils_3d.exec_raw("../data/models/shell.raw")
             glEndList()
         if Shell.explosion_gllist == "Unknown":
             Shell.explosion_gllist = glGenLists(1)
             glNewList(Shell.explosion_gllist, GL_COMPILE)
-            exec_raw("../data/models/explosions/shell_explosion.raw")
+            utils_3d.exec_raw("../data/models/explosions/shell_explosion.raw")
             glEndList()
 
         Shell.SOUND.play()
@@ -423,7 +349,7 @@ class Mine(bbutils.Shape):
         if self.gllist == "Unknown":
             self.gllist = glGenLists(1)
             glNewList(self.gllist, GL_COMPILE)
-            exec_raw("../data/models/mine.raw")
+            utils_3d.exec_raw("../data/models/mine.raw")
             glEndList()
 
         self.name = name
@@ -477,12 +403,12 @@ class Tank(bbutils.Shape):
         if Tank.blist == "Unknown":
             Tank.blist = glGenLists(1)
             glNewList(Tank.blist, GL_COMPILE)
-            exec_raw("../data/models/base.raw")
+            utils_3d.exec_raw("../data/models/base.raw")
             glEndList()
         if Tank.tlist == "Unknown":
             Tank.tlist = glGenLists(1)
             glNewList(Tank.tlist, GL_COMPILE)
-            exec_raw("../data/models/turret.raw")
+            utils_3d.exec_raw("../data/models/turret.raw")
             glEndList()
 
         self.game = game
@@ -543,7 +469,7 @@ class Spectator(bbutils.Shape):
         elif keys[pygame.K_RIGHT]:
             ip_r = -self.ROTATE_SPEED * delta
         if ip_r:
-            self.out = bbutils.yaw(ip_r, self.out, constants.UP, self.right)
+            self.out = utils_3d.yaw(ip_r, self.out, self.right)
 
         speed = 0
         shift = keys[K_LSHIFT] or keys[K_RSHIFT]
@@ -559,7 +485,7 @@ class Spectator(bbutils.Shape):
 
     @property
     def right(self):
-        return bbutils.normalize(np.cross(constants.UP, self.out))
+        return utils_3d.normalize(np.cross(constants.UP, self.out))
 
 
 class PlayerInputHandler:
@@ -649,7 +575,7 @@ class VictoryBanner:
         half_texwidth = int(self.width / 2) * zoomscale
         half_texheight = int(self.height / 2) * zoomscale
 
-        pts = window2view(
+        pts = utils_3d.window2view(
             [
                 ((half_width - half_texwidth), (half_height - half_texheight)),
                 ((half_width - half_texwidth), (half_height + half_texheight)),
@@ -753,7 +679,7 @@ class LifeBar:
         ]
         glPushMatrix()
         glLoadIdentity()
-        pts = window2view(pts)
+        pts = utils_3d.window2view(pts)
 
         self.gllist = glGenLists(1)
         glNewList(self.gllist, GL_COMPILE)
@@ -843,7 +769,7 @@ class ReloadingBar:
         glColor(*ReloadingBar.COLOR)
 
         glBegin(GL_POLYGON)
-        pts = window2view(pts)
+        pts = utils_3d.window2view(pts)
         for point in pts:
             glVertex(point)
         glEnd()
@@ -871,9 +797,6 @@ async def initialize_graphics():
     # set the window title
     pygame.display.set_caption("Bang Bang " + constants.VERSION)
 
-    # initialize glut
-    glutInit()
-
     # enable depth and turn on lights
     glEnable(GL_DEPTH_TEST)
     glEnable(GL_LIGHT0)
@@ -897,8 +820,9 @@ async def initialize_graphics():
     )
     glMatrixMode(GL_MODELVIEW)
 
+    # TODO: isn't it un-Pythonic to set class-wide variables like this? What's a cleaner alternative?
     # set up the explosion displaylists
-    setup_explosion()
+    Explosion.base_gllists, Explosion.turret_gllists, MineExplosion.gllists = utils_3d.setup_explosion()
 
     # NATURE
 
@@ -1058,8 +982,8 @@ async def rest_of_main(game, no_music):
             # tank vs. hill
             if collide_hill(player, hill, False, player.bout):
                 # Calculate a vector away from the hill. Does that make sense? :P
-                # away = bbutils.normalize(hill.pos - player.pos)
-                away = bbutils.normalize(player.pos - hill.pos)
+                # away = utils_3d.normalize(hill.pos - player.pos)
+                away = utils_3d.normalize(player.pos - hill.pos)
 
                 # back up the player so they aren't permanently stuck
                 player.pos += away * 10
@@ -1112,13 +1036,13 @@ async def rest_of_main(game, no_music):
                     tank.pos += player.bout * COLLISION_SPRINGBACK
                     for hill in hills:
                         if collide_hill(tank, hill, False, tank.bout):
-                            tank.pos = (20 + COLLISION_SPRINGBACK) * bbutils.normalize(
+                            tank.pos = (20 + COLLISION_SPRINGBACK) * utils_3d.normalize(
                                 tank.pos - hill.pos
                             ) + hill.pos
                         if collide_hill(player, hill, False, player.bout):
                             player.pos = (
                                 20 + COLLISION_SPRINGBACK
-                            ) * bbutils.normalize(player.pos - hill.pos) + hill.pos
+                            ) * utils_3d.normalize(player.pos - hill.pos) + hill.pos
                 for tree in trees:
                     if collide_tank(tree, tank, tank.bout) and not tree.falling.any():
                         tree.fall(bad_tank.bright, 0.5)

@@ -2,6 +2,7 @@
 
 import numpy as np
 
+import utils_3d
 import bbutils
 
 def collide_hill(obj, hill, is_shell=False, out=0):
@@ -24,7 +25,7 @@ def collide_hill(obj, hill, is_shell=False, out=0):
 
     if is_shell:
         # The famous distance equation
-        distance = bbutils.mag(obj_pos - hill_pos) - 20  # subtract the radius of the hill
+        distance = utils_3d.mag(obj_pos - hill_pos) - 20  # subtract the radius of the hill
     else:
         # It's a tank
         # Tank bases are in a ratio roughly 2:1.
@@ -33,9 +34,9 @@ def collide_hill(obj, hill, is_shell=False, out=0):
         sphere1_pos = obj_pos - (out * 4.625)
         sphere2_pos = obj_pos + (out * 3.75)
 
-        distance = bbutils.mag(obj_pos - hill_pos) - 4 - 20  # Get the center of the tank
-        distance1 = bbutils.mag(hill_pos - sphere1_pos) - 4 - 20
-        distance2 = bbutils.mag(hill_pos - sphere2_pos) - 4 - 20
+        distance = utils_3d.mag(obj_pos - hill_pos) - 4 - 20  # Get the center of the tank
+        distance1 = utils_3d.mag(hill_pos - sphere1_pos) - 4 - 20
+        distance2 = utils_3d.mag(hill_pos - sphere2_pos) - 4 - 20
 
     if (distance <= 0.0) or (distance1 <= 0.0) or (distance2 <= 0.0):
         ret = True
@@ -51,9 +52,9 @@ def collide_tank(obj, tank, out):
     sphere1_pos = tank.pos - (out * 4.625)
     sphere2_pos = tank.pos + (out * 3.75)
 
-    distance = bbutils.mag(obj.pos - tank.pos) - 4  # Get the center of the tank
-    distance1 = bbutils.mag(obj.pos - sphere1_pos) - 4
-    distance2 = bbutils.mag(obj.pos - sphere2_pos) - 4
+    distance = utils_3d.mag(obj.pos - tank.pos) - 4  # Get the center of the tank
+    distance1 = utils_3d.mag(obj.pos - sphere1_pos) - 4
+    distance2 = utils_3d.mag(obj.pos - sphere2_pos) - 4
 
     if (distance <= 0.0) or (distance1 <= 0.0) or (distance2 <= 0.0):
         return True
@@ -69,9 +70,9 @@ def collide_mine(mine, tank, out):
     sphere2_pos = tank.pos + (out * 3.75)
 
     # If I understand correctly, I'm subtracting six because it's four for the tank and two for the mine.
-    distance = bbutils.mag(mine.pos - tank.pos) - 6
-    distance1 = bbutils.mag(mine.pos - sphere1_pos) - 6
-    distance2 = bbutils.mag(mine.pos - sphere2_pos) - 6
+    distance = utils_3d.mag(mine.pos - tank.pos) - 6
+    distance1 = utils_3d.mag(mine.pos - sphere1_pos) - 6
+    distance2 = utils_3d.mag(mine.pos - sphere2_pos) - 6
 
     if (distance <= 0.0) or (distance1 <= 0.0) or (distance2 <= 0.0):
         return True
@@ -91,7 +92,7 @@ def collide_tanktank(tank1, tank2, out1, out2):
 
     for sphere1 in tank1_spheres:
         for sphere2 in tank2_spheres:
-            distance = bbutils.mag(sphere1 - sphere2)
+            distance = utils_3d.mag(sphere1 - sphere2)
             if distance - 4 <= 0.0:
                 return True
 
