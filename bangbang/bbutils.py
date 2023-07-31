@@ -7,17 +7,10 @@ import numpy as np
 import websockets.client
 import websockets.server
 
+import collisions
 import constants
 
-# TODO: rename this constant
-HW_CONST = 125
-
 Message = typing.NewType("Message", dict)
-
-
-class DummyPos(object):
-    def __init__(self, pos):
-        self.pos = np.array(pos)
 
 
 def mag(v):
@@ -138,89 +131,6 @@ def draw_model(vertices, faces, normals):
             glEnd()
 
 
-def collide_hill(obj, hill, is_shell=False, out=0):
-    """Check for a collision between an object and a hill."""
-    ret = False
-    distance1 = 10
-    distance2 = 10
-    distance3 = 10
-
-    if is_shell:
-        # The famous distance equation
-        distance = mag(obj.pos - hill.pos) - 20  # subtract the radius of the hill
-    else:
-        # It's a tank
-        # Tank bases are in a ratio roughly 2:1.
-        # We will account for this by checking for collisions with
-        # three spheres.
-        sphere1_pos = obj.pos - (out * 4.625)
-        sphere2_pos = obj.pos + (out * 3.75)
-
-        distance = mag(obj.pos - hill.pos) - 4 - 20  # Get the center of the tank
-        distance1 = mag(hill.pos - sphere1_pos) - 4 - 20
-        distance2 = mag(hill.pos - sphere2_pos) - 4 - 20
-
-    if (distance <= 0.0) or (distance1 <= 0.0) or (distance2 <= 0.0):
-        ret = True
-
-    return ret
-
-
-def collide_tank(obj, tank, out):
-    """Check for a collision between an object and a tank."""
-    # Tank bases are in a ratio roughly 2:1.
-    # We will account for this by checking for collisions with
-    # two spheres.
-    sphere1_pos = tank.pos - (out * 4.625)
-    sphere2_pos = tank.pos + (out * 3.75)
-
-    distance = mag(obj.pos - tank.pos) - 4  # Get the center of the tank
-    distance1 = mag(obj.pos - sphere1_pos) - 4
-    distance2 = mag(obj.pos - sphere2_pos) - 4
-
-    if (distance <= 0.0) or (distance1 <= 0.0) or (distance2 <= 0.0):
-        return True
-    return False
-
-
-def collide_mine(mine, tank, out):
-    """Check for a collision between a mine and a tank."""
-    # Tank bases are in a ratio roughly 2:1.
-    # We will account for this by checking for collisions with
-    # two spheres.
-    sphere1_pos = tank.pos - (out * 4.625)
-    sphere2_pos = tank.pos + (out * 3.75)
-
-    # If I understand correctly, I'm subtracting six because it's four for the tank and two for the mine.
-    distance = mag(mine.pos - tank.pos) - 6
-    distance1 = mag(mine.pos - sphere1_pos) - 6
-    distance2 = mag(mine.pos - sphere2_pos) - 6
-
-    if (distance <= 0.0) or (distance1 <= 0.0) or (distance2 <= 0.0):
-        return True
-    return False
-
-
-def collide_tanktank(tank1, tank2, out1, out2):
-    tank1_spheres = []
-    tank1_spheres.append(tank1.pos - (out1 * 4.625))
-    tank1_spheres.append(tank1.pos + (out1 * 3.75))
-    tank1_spheres.append(tank1.pos)
-
-    tank2_spheres = []
-    tank2_spheres.append(tank2.pos - (out2 * 4.625))
-    tank2_spheres.append(tank2.pos + (out2 * 3.75))
-    tank2_spheres.append(tank2.pos)
-
-    for sphere1 in tank1_spheres:
-        for sphere2 in tank2_spheres:
-            distance = mag(sphere1 - sphere2)
-            if distance - 4 <= 0.0:
-                return True
-
-    return False
-
-
 def random_tankpos(hillposes, hw):
     """Return an x, y, and z position for a tank."""
 
@@ -231,7 +141,7 @@ def random_tankpos(hillposes, hw):
         y = 0.0
         z = random.uniform(-hw, hw)
         for pos in hillposes:
-            if collide_hill(DummyPos((x, y, z)), DummyPos(pos)):
+            if collisions.collide_hill(DummyPos((x, y, z)), DummyPos(pos)):
                 bad_pos = True
         if not bad_pos:
             valid = True
@@ -244,7 +154,7 @@ def offender(tank1, tank2):
 
     # Check if tank1 ran into tank 2
     tank1_pos = tank1.pos + tank1.bout * 5
-    if collide_tank(DummyPos(tank1_pos), tank2, tank1.bout):
+    if collisions.collide_tank(DummyPos(tank1_pos), tank2, tank1.bout):
         return tank1
     else:
         return tank2
@@ -275,52 +185,6 @@ class Shape(object):
         self.alive = False
 
 
-def naturalobj_poses(no_players, hw):
-    """Return a list of hill and poses."""
-    no_hills = int(round(6.0 * np.sqrt(2 * no_players)))
-    no_trees = int(round(15.0 * np.sqrt(2 * no_players)))
-
-    hills = []
-    for i in range(no_hills):
-        x = random.randrange(-(hw - 30), (hw - 30))
-        y = 0.0
-        z = random.randrange(-(hw - 30), (hw - 30))
-        hills.append((x, y, z))
-
-    trees = []
-    for i in range(no_trees):
-        valid = False
-        # No trees inside hills!
-        while not valid:
-            bad_tree = False
-            x = random.randrange(-hw, hw)
-            y = 0.0
-            z = random.randrange(-hw, hw)
-            for hill in hills:
-                if collide_hill(DummyPos((x, y, z)), DummyPos(hill)):
-                    bad_tree = True
-                    break
-            if not bad_tree:
-                valid = True
-        trees.append((x, y, z))
-    return (hills, trees)
-
-
-def ask_number(prompt):
-    while True:
-        try:
-            ret = int(input(prompt))
-        except ValueError:
-            print("Not a number. Please try again.")
-            continue
-        if ret < 2:
-            print("This is a multiplayer game. Two or more please!")
-            continue
-        break
-
-    return ret
-
-
 def is_message_valid(message: Message) -> None:
     """Raise ValueError if message does not meet protocol."""
     # TODO: This is already hard to read and will only become more difficult. It might
@@ -346,9 +210,11 @@ def is_message_valid(message: Message) -> None:
     if "name" in message and not isinstance(message["name"], str):
         raise ValueError("client name is not str")
 
-    # rq must be specified in constants.Rq
-    if "rq" in message and message["rq"] not in iter(constants.Rq):
-        raise ValueError("invalid message rq")
+    # actions must be specified in constants.Action
+    if "actions" in message:
+        for a in message["actions"]:
+            if a not in iter(constants.Action):
+                raise ValueError(f"invalid message action '{a}'")
 
     # type-specific requirements
     match message["type"]:
@@ -368,9 +234,15 @@ def is_message_valid(message: Message) -> None:
         case constants.Msg.GREET if "name" not in message:
             raise ValueError("GREET message does not have name")
 
-        # REQUEST must have rq
-        case constants.Msg.REQUEST if "rq" not in message:
-            raise ValueError("REQUEST message does not have rq")
+        # REQUEST must have actions
+        case constants.Msg.REQUEST if "actions" not in message:
+            raise ValueError("REQUEST message does not have actions")
+
+        # START must have ...
+        case constants.Msg.START:
+            for must_have in ("ground_hw", "hill_poses", "tree_poses", "states"):
+                if must_have not in message:
+                    raise ValueError(f"START message does not have {must_have}")
 
 
 class _BBSharedProtocol:

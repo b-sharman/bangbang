@@ -1,6 +1,19 @@
 import enum
 
 import numpy as np
+from pygame.constants import *
+
+# determines the size of the ground
+AREA_PER_PLAYER = 125000  # m^2
+# tree and hill densities
+AREA_PER_HILL = 20800  # m^2 / hill
+AREA_PER_TREE = 8333  # m^2 / tree
+# minimum distance between a hill and the edge of the ground
+HILL_BUFFER = 30  # m
+# minimum distance between a tree and the edge of the ground
+TREE_BUFFER = 0  # m
+# minimum spawning distance between tanks
+MIN_SPAWN_DIST = 50  # m
 
 # network constants
 PORT = 4320
@@ -27,13 +40,41 @@ class Msg(enum.IntEnum):
 
 
 @enum.unique
-class Rq(enum.IntEnum):
-    """
-    Enum for request types.
+class Action(enum.IntEnum):
+    """Enum for action types (e.g. accelerate, shoot, turn left, etc.)."""
 
-    A request is a message sent by a player asking to move, shoot, etc.
-    """
-
-    UP = enum.auto()
-    DOWN = enum.auto()
+    ACCEL = enum.auto()
+    ALL_LEFT = enum.auto()  # both base and turret turn simulatenously
+    ALL_RIGHT = enum.auto()  # both base and turret turn simulatenously
+    BASE_LEFT = enum.auto()
+    BASE_RIGHT = enum.auto()
+    DEACCEL = enum.auto()
+    MINE = enum.auto()
+    TURN_BACK = enum.auto()
+    TURRET_LEFT = enum.auto()
+    TURRET_RIGHT = enum.auto()
     SHOOT = enum.auto()
+    SNAP_BACK = enum.auto()
+    STOP = enum.auto()
+
+
+KEYMAP: tuple[tuple[[tuple[int], Action]]] = (
+    ((K_UP,), Action.ACCEL),
+    ((K_LEFT,), Action.ALL_LEFT),
+    ((K_RIGHT,), Action.ALL_RIGHT),
+    ((K_LCTRL, K_LEFT), Action.BASE_LEFT),
+    ((K_RCTRL, K_LEFT), Action.BASE_LEFT),
+    ((K_LCTRL, K_RIGHT), Action.BASE_RIGHT),
+    ((K_RCTRL, K_RIGHT), Action.BASE_RIGHT),
+    ((K_DOWN,), Action.DEACCEL),
+    ((K_b,), Action.MINE),
+    ((K_LCTRL, K_t), Action.TURN_BACK),
+    ((K_RCTRL, K_t), Action.TURN_BACK),
+    ((K_LSHIFT, K_LEFT), Action.TURRET_LEFT),
+    ((K_RSHIFT, K_LEFT), Action.TURRET_LEFT),
+    ((K_LSHIFT, K_RIGHT), Action.TURRET_RIGHT),
+    ((K_RSHIFT, K_RIGHT), Action.TURRET_RIGHT),
+    ((K_SPACE,), Action.SHOOT),
+    ((K_t,), Action.SNAP_BACK),
+    ((K_s,), Action.STOP),
+)

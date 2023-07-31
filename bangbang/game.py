@@ -1,19 +1,22 @@
 # TODO: find it out if it makes sense to make all update() functions coroutines
 import asyncio
+import logging
 import math
 import random
+import socket
 import time
 
+import aioconsole
 import numpy as np
 import pygame
-from pygame.locals import *
+from pygame.constants import *
 
 from OpenGL.GL import *
 from OpenGL.GLU import *
 from OpenGL.GLUT import *
 
 import bbutils
-from client import Client
+from client import Client, PlayerData
 import constants
 
 # did we win?
@@ -101,6 +104,67 @@ def setup_explosion():
             MineExplosion.gllists.append(gllist)
 
 
+class Game:
+    def __init__(self) -> None:
+        self.client = Client(self)
+
+        # used to block opening the window until the game has started
+        self.start_event = asyncio.Event()
+
+        self.input_handler = PlayerInputHandler(self.client)
+        # id of the player playing on this computer
+        # assigned upon receiving an ID message
+        self.player_id = None
+
+        # set width when client receives START from server
+        self.ground_hw: int | None = None
+        self.hill_poses: list[tuple] | None = None
+        self.tree_poses: list[tuple] | None = None
+
+        self.players: dict[int, PlayerData] = {}
+
+    # TODO: replace the initialize methods with factory methods
+    async def initialize(self, ip) -> None:
+        """Things that can't go in __init__ because they're coros"""
+        await self.client.start(ip)
+
+    async def assign_name(self) -> None:
+        name = await aioconsole.ainput("Enter your name: ")
+        await self.client.greet(name)
+
+    async def handle_message(self, message: dict, tg: asyncio.TaskGroup) -> None:
+        """Handle a JSON-loaded dict network message."""
+        match message["type"]:
+            case constants.Msg.APPROVE:
+                try:
+                    self.players[message["id"]].update_state(message["state"])
+                except KeyError:
+                    logging.log(logging.DEBUG, f"received APPROVE for player {message['id']} which does not exist")
+                else:
+                    logging.debug(
+                        f"PlayerData {message['id']} state updated with {message['state']}"
+                    )
+
+            case constants.Msg.ID:
+                self.player_id = message["id"]
+
+            case constants.Msg.START:
+                print("Starting now!")
+                for client_id, state in message["states"]:
+                    self.players[client_id] = PlayerData(state)
+
+                self.ground_hw = message["ground_hw"]
+                self.hill_poses = message["hill_poses"]
+                self.tree_poses = message["tree_poses"]
+                for client_id, state in message["states"]:
+                    self.players[client_id].update_state(state)
+
+                # allow the main game loop to start
+                self.start_event.set()
+                # start listening for keyboard input
+                tg.create_task(self.input_handler.start())
+
+
 class Tree(bbutils.Shape):
     ACC = 30.0  # degrees/s**2
     FALL_SOUND = pygame.mixer.Sound("../data/sound/tree.wav")
@@ -170,31 +234,25 @@ class Ground(bbutils.Shape):
 
     COLOR = (0.1, 0.3, 0.0)
 
-    # half-width
-    HW = 250
-    WIDTH = HW * 2
-    # length of the diagonal, calculated with the Pythagorean
-    DIAGONAL = math.sqrt(2 * (WIDTH**2))
-
     def __init__(self):
         self.pos = np.zeros(3)
 
-    def gen_list(self):
+    def gen_list(self, ground_hw):
         """Generate the gllist for the ground."""
         Ground.gllist = glGenLists(1)
         glNewList(Ground.gllist, GL_COMPILE)
         glBegin(GL_POLYGON)
         glNormal(0.0, 1.0, 0.0)
-        glVertex(self.pos[0] - Ground.HW, self.pos[1], self.pos[2] - Ground.HW)
+        glVertex(self.pos[0] - ground_hw, self.pos[1], self.pos[2] - ground_hw)
         glNormal(0.0, 1.0, 0.0)
-        glVertex(self.pos[0] + Ground.HW, self.pos[1], self.pos[2] - Ground.HW)
+        glVertex(self.pos[0] + ground_hw, self.pos[1], self.pos[2] - ground_hw)
         glNormal(0.0, 1.0, 0.0)
-        glVertex(self.pos[0] + Ground.HW, self.pos[1], self.pos[2] + Ground.HW)
+        glVertex(self.pos[0] + ground_hw, self.pos[1], self.pos[2] + ground_hw)
         glNormal(0.0, 1.0, 0.0)
-        glVertex(self.pos[0] - Ground.HW, self.pos[1], self.pos[2] + Ground.HW)
+        glVertex(self.pos[0] - ground_hw, self.pos[1], self.pos[2] + ground_hw)
         glNormal(0.0, 1.0, 0.0)
         # the last point must close the square
-        glVertex(self.pos[0] - Ground.HW, self.pos[1], self.pos[2] - Ground.HW)
+        glVertex(self.pos[0] - ground_hw, self.pos[1], self.pos[2] - ground_hw)
         glEnd()
         glEndList()
 
@@ -410,33 +468,10 @@ class Tank(bbutils.Shape):
     # the turret can spin independently of the base. B stands for base, T stands for
     # turret.
 
-    # how fast the turret rotates after the player presses "t"
-    SNAP_SPEED = 60.0  # deg / s
-
-    # TODO: change units to degrees per second
-    BROTATE = 3
-    TROTATE = 2
-
-    # the range in which "s" stops the tank
-    SNAP_STOP = 0.13  # m/s
-
-    # Speeds
-    # 1 OGL unit = 1.74 meter
-    # real M1 Abrams acceleration: 2.22
-    ACC = 2.0  # m/s**2
-    # real M1 Abrams max speed: 35.0
-    MAX_SPEED = 10.0  # m/s
-    MIN_SPEED = -4.0  # m/s
-
-    RELOAD_TIME = 10  # s
-    # how many shell hits before dead?
-    # TODO: rename this since a single mine hit does two damage
-    HITS_TO_DIE = 5
-
     blist = "Unknown"
     tlist = "Unknown"
 
-    def __init__(self, pos, out, name, color):
+    def __init__(self, game: Game, client_id: int):
         super().__init__()
 
         if Tank.blist == "Unknown":
@@ -450,238 +485,29 @@ class Tank(bbutils.Shape):
             exec_raw("../data/models/turret.raw")
             glEndList()
 
-        self.pos = np.array(pos)  # position of the tank
-        self.tout = np.array(out)  # which way the turret's facing
-        self.bout = np.array(out)  # which way the base is facing
-
-        # snapping back: turret turns to meet base
-        # turning back: base turns to meet turret
-        # these variables are true if either t or ctrl t have been pressed
-        # I believe they can both be true simulatneously
-        self.snapping_back = False
-        self.turning_back = False
-
-        self.speed = 0.0  # m / s, I hope
-        self.bangle = 0.0
-        self.tangle = 0.0
-
-        self.ip_bangle = 0
-        self.ip_tangle = 0
-
-        self.color = color
-        self.name = name
-        self.hits_left = Tank.HITS_TO_DIE  # how many more hits before dead?
+        self.game = game
+        self.client_id = client_id
 
     def update(self):
-        delta = self.delta_time()
-
-        self.routine(delta, self.ip_bangle, self.ip_tangle)
-
-        # TODO: check if the below comment is still true
-        # repeated code from Player class, consider combining this in a single method
-        self.ip_bangle, self.ip_tangle = self.check_keypresses(self.keys)
-
-        # make sure the angles don't get too high, this helps the turret animation
-        self.tangle %= 360.0
-        self.bangle %= 360.0
-
-        if self.hits_left <= 0:
-            self.die()
-
-    def snap_logic(self, target_angle, approaching_angle, incr):
-        """
-        Perform calculations for the snapping and turning back animations.
-
-        Returns the increment to be added to the approaching angle (which may be 0)
-        and a boolean indicating whether the animation has finished.
-
-        incr should be delta times either Tank.SNAP_SPEED or Tank.BROTATE.
-        """
-        diff = approaching_angle - target_angle
-        # once within a certain threshold of the correct angle, stop snapping back
-        if abs(diff) <= incr:
-            return diff, True
-
-        if approaching_angle < target_angle:
-            return incr, False
-        return -incr, False
-
-    def routine(self, delta, ip_bangle=0.0, ip_tangle=0.0):
-        if self.snapping_back and ip_tangle == 0.0:
-            ip_tangle, finished = self.snap_logic(
-                self.bangle, self.tangle, delta * Tank.SNAP_SPEED
-            )
-            if finished:
-                self.snapping_back = False
-        if self.turning_back and ip_bangle == 0.0:
-            ip_bangle, finished = self.snap_logic(
-                self.tangle, self.bangle, delta * Tank.BROTATE
-            )
-            if finished:
-                self.turning_back = False
-
-        if ip_tangle:
-            self.tangle += ip_tangle
-            self.tout = bbutils.yaw(ip_tangle, self.tout, constants.UP, self.tright)
-        if ip_bangle:
-            self.bangle += ip_bangle
-            self.bout = bbutils.yaw(ip_bangle, self.bout, constants.UP, self.bright)
-
-        # range(len()) may be old-timey, but it's more readable than packing lots of
-        # min()s and max()s into list comprehension, and enumerate() is unnecessary
-        for i in range(len(self.pos)):
-            if self.pos[i] > Ground.HW:
-                self.pos[i] = Ground.HW
-            if self.pos[i] < -Ground.HW:
-                self.pos[i] = -Ground.HW
-
-        for angle, gllist in zip((self.bangle, self.tangle), (self.blist, self.tlist)):
+        for angle, gllist in (
+            (self.state.bangle, self.blist),
+            (self.state.tangle, self.tlist),
+        ):
             glPushMatrix()
-            glColor(*self.color)
-            glTranslate(*self.pos)
-            glRotate(angle, 0.0, 1.0, 0.0)
+            glColor(*self.state.color)
+            glTranslate(*self.state.pos)
+            glRotate(angle, *constants.UP)
             glCallList(gllist)
             glPopMatrix()
 
-        # move the tank, according to the speed
-        self.pos += self.bout * self.speed * delta
-
-    def check_keypresses(self, keys):
-        ip_bangle = 0.0
-        ip_tangle = 0.0
-
-        if self.turning_back:
-            # freeze for now
-            return (ip_bangle, ip_tangle)
-
-        shift = keys[K_LSHIFT] or keys[K_RSHIFT]
-        ctrl = keys[K_LCTRL] or keys[K_RCTRL]
-
-        if keys[pygame.K_LEFT]:
-            if shift:
-                ip_tangle = Tank.TROTATE
-            elif ctrl:
-                ip_bangle = Tank.BROTATE
-            else:
-                # self.tangle += Tank.BROTATE
-                ip_tangle = Tank.BROTATE
-                # self.bangle += Tank.BROTATE
-                ip_bangle = Tank.BROTATE
-        elif keys[pygame.K_RIGHT]:
-            if shift:
-                # self.tangle -= Tank.TROTATE
-                ip_tangle = -Tank.TROTATE
-            elif ctrl:
-                ip_bangle = -Tank.BROTATE
-            else:
-                # self.tangle -= Tank.BROTATE
-                ip_tangle = -Tank.BROTATE
-                # self.bangle -= Tank.BROTATE
-                ip_bangle = -Tank.BROTATE
-        if keys[pygame.K_UP]:
-            # speed up
-            self.speed = max(self.speed + Tank.ACC * delta, Tank.MAX_SPEED)
-        if keys[pygame.K_DOWN]:
-            # slow down
-            self.speed = max(self.speed - Tank.ACC * delta, Tank.MIN_SPEED)
-        if keys[pygame.K_t]:
-            if ctrl:
-                self.turning_back = True
-            else:
-                self.snapping_back = True
-        if keys[pygame.K_s] and abs(self.speed) <= Tank.SNAP_STOP:
-            self.speed = 0.0
-
-        return (ip_bangle, ip_tangle)
-
-    def recv_data(self, data):
-        self.pos = np.array(data["pos"])
-        self.bout = np.array(data["bout"])
-        self.tout = np.array(data["tout"])
-        self.speed = data["speed"]
-        self.name = data["name"]
-        self.bangle = data["bangle"]
-        self.tangle = data["tangle"]
-        self.keys = data["keys"]
-
-    def recv_hit(self, weapon="tank", player=False):
-        """
-        Decrement tank health meter and print obituary as necessary.
-
-        weapon should be either "tank" or "mine".
-
-        If set to True, player will change the obituary.
-        """
-
-        # TODO: replace "weapon" arg with a damage arg
-        if weapon == "tank":
-            increment = Shell.DAMAGE
-        if weapon == "mine":
-            increment = Mine.DAMAGE
-
-        self.hits_left -= increment
-        if self.hits_left == 0:
-            if player and not won:
-                self.die()
-                print("You died!")
-            else:
-                self.die()
-                print(f"{self.name} died.")
-
-    # vector properties
-
-    # TODO: if these vectors are actually left instead of right, rename them
     @property
-    def tright(self):
-        return bbutils.normalize(np.cross(constants.UP, self.tout))
-
-    @property
-    def bright(self):
-        return bbutils.normalize(np.cross(constants.UP, self.bout))
+    def state(self):
+        return self.game.players[self.client_id]
 
 
 class Player(Tank):
-    def __init__(self, pos):
-        # TODO: Upon startup, have the server providd players with an arbitrary bangle
-        super().__init__(
-            pos=pos, out=np.array((0.0, 0.0, 1.0)), name="Gandalf", color=(0, 1, 0)
-        )
-
-        # the value of pygame.key.get_pressed last frame
-        self.prev_keymap = pygame.key.get_pressed()
-
-    def update(self):
-        # make sure the angles don't get too high, this helps the turret animation
-        self.tangle %= 360.0
-        self.bangle %= 360.0
-
-        # keytable:
-        # to do this            press this
-        # --------------------------------
-        # speed up              up arrow
-        # slow down             down arrow
-        # turn tank left        left arrow
-        # turn tank right       right arrow
-        # turn turret left      shift+left arrow
-        # turn turret right     shift+right arrow
-        # look up               shift+up arrow
-        # look down             shift+down arrow
-        # align turret with baset
-        # stop                  s
-
-        keys = pygame.key.get_pressed()
-
-        ip_bangle, ip_tangle = self.check_keypresses(keys)
-        # routine inherited from Tank class
-        self.routine(ip_bangle, ip_tangle)
-
-        # check if the keypress state has changed since last time
-        if keys != self.prev_keymap:
-            # TODO: tell the client to send the keymap to the server
-            pass
-
-        # remember the old keymap state
-        self.prev_keymap = keys
+    def __init__(self, state):
+        super().__init__(state)
 
 
 # TODO: make an abstract class containing shared code from Tank, Player, and Spectator
@@ -734,6 +560,38 @@ class Spectator(bbutils.Shape):
     @property
     def right(self):
         return bbutils.normalize(np.cross(constants.UP, self.out))
+
+
+class PlayerInputHandler:
+    """Sends keyboard input to the server."""
+
+    def __init__(self, client: Client) -> None:
+        self.client = client
+
+        # the value of pygame.key.get_pressed last frame
+        self.prev_keymap = pygame.key.get_pressed()
+
+        # to avoid sending the same set of actions twice in a row
+        self.prev_actions = None
+
+    async def start(self) -> None:
+        """Start everything the player needs to do during the game."""
+        while True:
+            await self.run()
+
+    async def run(self) -> None:
+        """Interface to send requests to the server."""
+        keys = pygame.key.get_pressed()
+        actions: set[constants.Action] = {
+            action
+            for key_combo, action in constants.KEYMAP
+            if all(
+                {keys[k] for k in key_combo}
+            )  # if all the keys in the combo are pressed
+        }
+        if actions != self.prev_actions:
+            await self.client.send_actions(actions)
+            self.prev_actions = actions
 
 
 class VictoryBanner:
@@ -833,10 +691,9 @@ class LifeBar:
     MARGIN = 50
     UNIT = 200
 
-    def __init__(self, screen):
-        self.index = 0
-
-        self.newimg_stuff(screen)
+    def __init__(self, player_data: PlayerData):
+        self.player_data = player_data
+        self.newimg_stuff()
 
     def draw(self):
         """Draw the LifeBar overlay."""
@@ -858,16 +715,16 @@ class LifeBar:
         # calculating health values
         self.index += increment
 
-        self.newimg_stuff(screen)
+        self.newimg_stuff()
 
     # TODO: find a better name for this method
-    def newimg_stuff(self, screen):
+    def newimg_stuff(self):
         # generate texture
         glEnable(GL_TEXTURE_2D)
         self.texture = glGenTextures(1)
         glBindTexture(GL_TEXTURE_2D, self.texture)
         try:
-            self.current_image = LifeBar.IMGS[self.index]
+            self.current_image = LifeBar.IMGS[self.player_data.hits_left]
         except IndexError:
             pass
         glTexImage2D(
@@ -887,12 +744,12 @@ class LifeBar:
         # draw the texture into a display list
         pts = [
             (
-                screen[0] - LifeBar.MARGIN - LifeBar.UNIT,
-                screen[1] - LifeBar.MARGIN - LifeBar.UNIT,
+                SCR[0] - LifeBar.MARGIN - LifeBar.UNIT,
+                SCR[1] - LifeBar.MARGIN - LifeBar.UNIT,
             ),
-            (screen[0] - LifeBar.MARGIN - LifeBar.UNIT, screen[1] - LifeBar.MARGIN),
-            (screen[0] - LifeBar.MARGIN, screen[1] - LifeBar.MARGIN),
-            (screen[0] - LifeBar.MARGIN, screen[1] - LifeBar.MARGIN - LifeBar.UNIT),
+            (SCR[0] - LifeBar.MARGIN - LifeBar.UNIT, SCR[1] - LifeBar.MARGIN),
+            (SCR[0] - LifeBar.MARGIN, SCR[1] - LifeBar.MARGIN),
+            (SCR[0] - LifeBar.MARGIN, SCR[1] - LifeBar.MARGIN - LifeBar.UNIT),
         ]
         glPushMatrix()
         glLoadIdentity()
@@ -995,43 +852,24 @@ class ReloadingBar:
         glPopMatrix()
 
 
-class Game:
-    def __init__(self) -> None:
-        # uncomment this when networking is reimplemented
-        # self.client = Client(self)
-
-        self.players: dict[int, PlayerData] = {}
-
-        # TODO: implement PlayerInputHandler
-        # self.input_handler = PlayerInputHandler(self.client)
-        # id of the player playing on this computer
-        # assigned upon receiving an ID message
-        self.player_id = None
-
-    async def initialize(self, ip) -> None:
-        """Things that can't go in __init__ because they're coros"""
-        # uncomment this when networking is reimplemented
-        # await self.client.start(ip)
-        pass
-
-    async def assign_name(self) -> None:
-        name = await aioconsole.ainput("Enter your name: ")
-        # TODO: uncomment this when networknig is reimplemented
-        # await self.client.greet(name)
-
-    async def handle_message(self, message: dict, tg: asyncio.TaskGroup) -> None:
-        """Handle a JSON-loaded dict network message."""
-        print("handle_message called, but is unimplemented")
-        pass
-
-
 async def main(host, no_music):
-    global won, SCR, explosion, mines, allshapes, spectating
-
     print("Welcome to Bang Bang " + constants.VERSION)
 
     game = Game()
-    await game.initialize(host)
+    async with asyncio.TaskGroup() as tg:
+        try:
+            tg.create_task(game.initialize(host))
+        except (socket.gaierror, OSError):
+            logging.error(f"could not connect to {host}")
+            exit()
+
+        # wait until the server sends a start signal
+        await game.start_event.wait()
+        await rest_of_main(game, no_music)
+
+
+async def rest_of_main(game, no_music):
+    global won, SCR, explosion, mines, allshapes, spectating
 
     # initialize pygame to display OpenGL
     screen = pygame.display.set_mode(flags=OPENGL | DOUBLEBUF | FULLSCREEN | HWSURFACE)
@@ -1057,7 +895,7 @@ async def main(host, no_music):
     glEnable(GL_LIGHTING)
 
     # position the sun in an "afternoon" position for best tank lighting
-    glLightfv(GL_LIGHT0, GL_POSITION, (Ground.HW * 0.5, 300.0, Ground.HW * 0.5))
+    glLightfv(GL_LIGHT0, GL_POSITION, (game.ground_hw * 0.5, 300.0, game.ground_hw * 0.5))
 
     # turn on colors
     glColorMaterial(GL_FRONT, GL_DIFFUSE)
@@ -1065,7 +903,13 @@ async def main(host, no_music):
 
     # set up the camera lens
     glMatrixMode(GL_PROJECTION)
-    gluPerspective(45.0, float(SCR[0]) / float(SCR[1]), 0.1, Ground.DIAGONAL)
+    gluPerspective(
+        45.0,
+        float(SCR[0]) / float(SCR[1]),
+        0.1,
+        # length of the ground diagonal, which is the longest distance the player would need to see
+        math.sqrt(8) * game.ground_hw,
+    )
     glMatrixMode(GL_MODELVIEW)
 
     # set up the explosion displaylists
@@ -1078,29 +922,21 @@ async def main(host, no_music):
 
     # make the ground
     ground = Ground()
-    ground.gen_list()
+    ground.gen_list(game.ground_hw)
 
-    # TODO: reimplement this
-    # hillposes, treeposes = client.get_naturalobjs()
-    hillposes = []
-    treeposes = []
-    hills = [Hill(pos) for pos in hillposes]
-    trees = [Tree(pos) for pos in treeposes]
-
-    # Add the tanks
-    # TODO: implement this
-    tanks = []
+    hills = [Hill(pos) for pos in game.hill_poses]
+    trees = [Tree(pos) for pos in game.tree_poses]
+    tanks = [Tank(game, player_data["client_id"]) for player_data in game.players]
 
     # Make allshapes
-    player = Player(np.zeros(3, dtype=float))
-    allshapes = [ground, player] + hills + trees + tanks  # get all of the shapes
+    allshapes = [player] + hills + trees + tanks  # get all of the shapes
     drot = np.radians(1.0)
-    lifebar = LifeBar(SCR)
+    lifebar = LifeBar()
 
     # groups
-    shells = []
-    playershells = []
-    mines = []
+    shells = set()
+    playershells = set()
+    mines = set()
 
     reloadingbar = ReloadingBar()
 
@@ -1199,7 +1035,7 @@ async def main(host, no_music):
                 spectating = True
 
                 spectator = Spectator(
-                    player.pos, player.tout, player.up, player.tright, player.tangle
+                    player.pos, player.tout, constants.UP, player.tright, player.tangle
                 )
                 allshapes.append(spectator)
             # TODO: simplify this confusing endgame logic
@@ -1283,7 +1119,7 @@ async def main(host, no_music):
 
         for shell in shells:
             for i in range(len(shell.pos)):
-                if shell.pos[i] > Ground.HW or shell.pos[i] < -Ground.HW:
+                if shell.pos[i] > game.ground_hw or shell.pos[i] < -game.ground_hw:
                     shell.hill()
 
         # draw victory banner, if it exists

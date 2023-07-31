@@ -5,44 +5,15 @@ import asyncio
 import socket
 
 import constants
-
-# Let's automatically define the port, instead of giving the user another
-# meaningless number that they have to keep track of.
-PORT = 4132
-
-def list2str(arg):
-    ret = ""
-    for x in arg:
-        ret += x + "."
-
-    return ret
-
-def get_local_ip():
-    """Return the computer's local IP address."""
-    # based on https://stackoverflow.com/questions/166506/finding-local-ip-addresses-using-pythons-stdlib
-    with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
-        # The following raises socket.error if not connected to Internet
-        # Wrote a simple try-except to get around.
-        try:
-            s.connect(("8.8.8.8", 80))
-        except (socket.error, OSError):
-            raise RuntimeError(
-                "Connection didn't work; are you connected to the internet?"
-            )
-        else:
-            return s.getsockname()[0]
+import game
 
 def main():
-
     parser = argparse.ArgumentParser(
         description = "Bang Bang " + constants.VERSION,
         epilog = "See the README for more information.",
         prog = "bangbang")
-    parser.add_argument("--host", help = "Provide a host to bind to")
+    parser.add_argument("host", help = "Provide a host to bind to")
     parser.add_argument("-m", "--no-music", help = "Disable music", action = "store_true"),
-    parser.add_argument("-s", "--server", action = "store_true",
-                        default = False,
-                        help = "Act as a server, see README for more info")
     parser.add_argument("-v", "--version", help = "Print version number and exit",
                         action = "store_true", default = False)
 
@@ -68,24 +39,7 @@ def main():
         
         return
 
-    if args.host:
-        host = args.host
-    else:
-        try:
-            host = get_local_ip()
-        # not connected to the internet
-        except RuntimeError as m:
-            logger.log(logging.ERROR, m)
-            exit()
-
-    if args.server:
-        #from . import server
-        import server
-        asyncio.run(server.main(host))
-    else:
-        #from . import client
-        import game
-        asyncio.run(game.main(host, args.no_music))
+    asyncio.run(game.main(args.host, args.no_music))
 
 if __name__ == "__main__":
     main()

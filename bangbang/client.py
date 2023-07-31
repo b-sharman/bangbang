@@ -1,9 +1,34 @@
 import asyncio
+from collections.abc import Iterable
 import json
+from typing import Any, Optional
 import websockets
 
 import bbutils
 import constants
+
+
+class PlayerData:
+    """Class that updates its __dict__ from data coming over the network."""
+
+    def __init__(self, state: Optional[dict[str, Any]] = None) -> None:
+        if state is not None:
+            self.update_state(state)
+
+    def update_state(self, state: dict[str, Any]) -> None:
+        """
+        Assign this class's attributes to values corresponding to `state`.
+
+        This essentially translates a dict of vars and values to attributes
+        For instance,
+            >>> p = PlayerData()
+            >>> p.update_state({"client_id": 0, "name": "foo"})
+        should be more or less equivalent to
+            >>> p = PlayerData()
+            >>> p.client_id = 0
+            >>> p.name = "foo"
+        """
+        self.__dict__.update(state)
 
 
 class Client:
@@ -18,9 +43,9 @@ class Client:
         """
         await self.ws.send({"type": constants.Msg.GREET, "name": name})
 
-    async def send_rq(self, rq: constants.Rq) -> None:
-        """Send an rq-type message to the server."""
-        await self.ws.send({"type": constants.Msg.REQUEST, "rq": rq})
+    async def send_actions(self, actions: Iterable[constants.Action]) -> None:
+        """Send a REQUEST message to the server."""
+        await self.ws.send({"type": constants.Msg.REQUEST, "actions": actions})
 
     async def start(self, ip: str) -> None:
         """Attempt to connect to the server and listen for new messages."""
