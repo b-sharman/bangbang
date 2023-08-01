@@ -9,14 +9,15 @@ from typing import Any
 import aioconsole
 import numpy as np
 
-import utils_3d
+import base_shapes
 import bbutils
 import collisions
 import constants
 import server_network
+import utils_3d
 
 
-class Tank(bbutils.Shape):
+class Tank(base_shapes.Shape):
     # how fast the turret rotates after the player presses "t"
     SNAP_SPEED = 60.0  # deg / s
 
@@ -48,11 +49,6 @@ class Tank(bbutils.Shape):
         self.ground_hw = ground_hw
         self.name = name
         self.pos = np.array(pos)
-
-        # don't know if this is correct - will need some trial and error
-        out = utils_3d.yaw(angle, np.array((1.0, 0.0, 0.0)), np.array((0.0, 0.0, 1.0)))
-        self.bout = out.copy()
-        self.tout = out.copy()
 
         # snapping back: turret turns to meet base
         # turning back: base turns to meet turret
@@ -165,10 +161,8 @@ class Tank(bbutils.Shape):
         # adjust base and turret angles and out vectors if they've changed
         if ip_bangle:
             self.bangle += ip_bangle * delta
-            self.bout = utils_3d.yaw(ip_bangle, self.bout, self.bright)
         if ip_tangle:
             self.tangle += ip_tangle * delta
-            self.tout = utils_3d.yaw(ip_tangle, self.tout, self.tright)
 
         # make sure the angles don't get too high, this helps the turret animation
         self.bangle %= 360.0
@@ -193,6 +187,16 @@ class Tank(bbutils.Shape):
         }
 
     # vector properties
+
+    @property
+    def bout(self):
+        # don't know if this is correct - will need some trial and error
+        return utils_3d.yaw(self.bangle, np.array((1.0, 0.0, 0.0)), np.array((0.0, 0.0, 1.0)))
+
+    @property
+    def tout(self):
+        # don't know if this is correct - will need some trial and error
+        return utils_3d.yaw(self.tangle, np.array((1.0, 0.0, 0.0)), np.array((0.0, 0.0, 1.0)))
 
     @property
     def bright(self):
@@ -244,7 +248,7 @@ class Server:
         self.server.message_all(
             {
                 "type": constants.Msg.START,
-                "states": [(c.client_id, c.state) for c in self.server.clients],
+                "states": [(client_id, t.state) for client_id, t in self.tanks.items()],
                 "ground_hw": ground_hw,
                 "hill_poses": hill_poses,
                 "tree_poses": tree_poses,

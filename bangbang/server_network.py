@@ -49,9 +49,6 @@ class Client:
         # set by a GREET message
         self.name = None
 
-        # server.Client.state is mirrored by game.PlayerData.__dict__
-        self.state: dict[str, Any] = {}
-
         # start listening to messages coming in from the client
         handler = tg.create_task(self.handler())
 
