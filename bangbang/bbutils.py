@@ -15,31 +15,6 @@ import constants
 Message = typing.NewType("Message", dict)
 
 
-class Shape(object):
-    """Base shape class."""
-
-    gllist = "Unknown"
-
-    def __init__(self):
-        self.clock = time.time()
-        self.alive = True
-
-    def delta_time(self):
-        """
-        Return the time elapsed in seconds since the last call to delta_time.
-
-        If delta_time is being called for the first time, return the time since
-        __init__ was called.
-        """
-        new_time = time.time()
-        diff = new_time - self.clock
-        self.clock = new_time
-        return diff
-
-    def die(self):
-        self.alive = False
-
-
 def is_message_valid(message: Message) -> None:
     """Raise ValueError if message does not meet protocol."""
     # TODO: This is already hard to read and will only become more difficult. It might

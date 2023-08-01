@@ -1,11 +1,13 @@
 import asyncio
 from collections.abc import Iterable
 import json
+import numpy as np
 from typing import Any, Optional
 import websockets
 
 import bbutils
 import constants
+import utils_3d
 
 
 class PlayerData:
@@ -29,6 +31,17 @@ class PlayerData:
             >>> p.name = "foo"
         """
         self.__dict__.update(state)
+
+    # TODO: this is duplicated code from server.Tank - find a way to reuse it
+    @property
+    def bout(self):
+        # don't know if this is correct - will need some trial and error
+        return utils_3d.yaw(self.bangle, np.array((1.0, 0.0, 0.0)), np.array((0.0, 0.0, 1.0)))
+
+    @property
+    def tout(self):
+        # don't know if this is correct - will need some trial and error
+        return utils_3d.yaw(self.tangle, np.array((1.0, 0.0, 0.0)), np.array((0.0, 0.0, 1.0)))
 
 
 class Client:
