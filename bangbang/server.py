@@ -180,6 +180,7 @@ class Tank(base_shapes.Shape):
         return {
             "bangle": self.bangle,
             "color": self.color,
+            "hits_left": self.hits_left,
             "name": self.name,
             "pos": tuple(self.pos),
             "speed": self.speed,
