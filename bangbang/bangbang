@@ -2,6 +2,7 @@
 
 import argparse
 import asyncio
+import os
 import socket
 
 import constants
@@ -39,6 +40,8 @@ def main():
         
         return
 
+    if os.environ["XDG_SESSION_TYPE"] != "x11":
+        print("Warning: Bang Bang does not support non-Xorg environments (e.g. Wayland).")
     asyncio.run(game.main(args.host, args.no_music))
 
 if __name__ == "__main__":

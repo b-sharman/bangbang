@@ -94,6 +94,10 @@ class Game:
                 # start listening for keyboard input
                 tg.create_task(self.input_handler.run())
 
+    @property
+    def player_data(self) -> PlayerData:
+        return self.players[self.player_id]
+
 
 class PlayerInputHandler:
     """Sends keyboard input to the server."""
@@ -127,7 +131,7 @@ class PlayerInputHandler:
         await self.run()
 
 
-async def initialize_graphics():
+def initialize_graphics(game, no_music):
     """Set up the pygame and OpenGL environments, generate some display lists."""
     global SCR
 
@@ -160,6 +164,8 @@ async def initialize_graphics():
 
     # set up the camera lens
     glMatrixMode(GL_PROJECTION)
+    if not gluPerspective:
+        logging.warning("If the program crashes, make sure glew is installed.")
     gluPerspective(
         45.0,
         float(SCR[0]) / float(SCR[1]),
@@ -188,14 +194,14 @@ async def initialize_graphics():
     # Make allshapes
     allshapes = hills + trees + tanks  # get all of the shapes
     drot = np.radians(1.0)
-    lifebar = shapes.LifeBar()
+    lifebar = shapes.LifeBar(game.players[game.player_id], SCR)
 
     # groups
     shells = []
     playershells = []
     mines = []
 
-    reloadingbar = shapes.ReloadingBar()
+    reloadingbar = shapes.ReloadingBar(SCR[0])
 
     # this variable is assigned when this player wins
     victory_banner = None
@@ -231,7 +237,7 @@ async def rest_of_main(game, no_music):
 
     # run CPU-intensive code in a non-blocking way
     # https://docs.python.org/3/library/asyncio-dev.html#running-blocking-code
-    await asyncio.get_running_loop().run_in_executor(None, initialize_graphics)
+    await asyncio.get_running_loop().run_in_executor(None, initialize_graphics, game, no_music)
 
     # reloading is the time at which the player can fire again
     reloading = time.time()

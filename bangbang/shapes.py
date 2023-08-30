@@ -1,16 +1,18 @@
 import time
 
 from OpenGL.GL import *
+import numpy as np
 import pygame
 
 from base_shapes import Shape
 from client import PlayerData
+import utils_3d
 
 pygame.mixer.init()
 
 
 class Explosion(Shape):
-    NO_EXPLOSION_FRAMES = 150
+    NO_FRAMES = 150
     TARGET_FPS = 50
 
     def __init__(self, pos, color):
@@ -40,7 +42,7 @@ class Explosion(Shape):
         self._draw()
 
         self.frame_index += 1
-        if self.frame_index >= Explosion.NO_EXPLOSION_FRAMES:
+        if self.frame_index >= self.NO_FRAMES:
             self.die()
 
 
@@ -50,6 +52,7 @@ class Ground(Shape):
     COLOR = (0.1, 0.3, 0.0)
 
     def __init__(self):
+        super().__init__()
         self.pos = np.zeros(3)
 
     def gen_list(self, ground_hw):
@@ -81,6 +84,7 @@ class Ground(Shape):
 
 class Hill(Shape):
     def __init__(self, pos):
+        super().__init__()
         if Hill.gllist == "Unknown":
             Hill.gllist = glGenLists(1)
             glNewList(Hill.gllist, GL_COMPILE)
@@ -111,8 +115,9 @@ class LifeBar:
     MARGIN = 50
     UNIT = 200
 
-    def __init__(self, player_data: PlayerData):
+    def __init__(self, player_data: PlayerData, screen: tuple[int]):
         self.player_data = player_data
+        self.screen = screen
         self.newimg_stuff()
 
     def draw(self):
@@ -150,12 +155,18 @@ class LifeBar:
         # draw the texture into a display list
         pts = [
             (
-                SCR[0] - LifeBar.MARGIN - LifeBar.UNIT,
-                SCR[1] - LifeBar.MARGIN - LifeBar.UNIT,
+                self.screen[0] - LifeBar.MARGIN - LifeBar.UNIT,
+                self.screen[1] - LifeBar.MARGIN - LifeBar.UNIT,
             ),
-            (SCR[0] - LifeBar.MARGIN - LifeBar.UNIT, SCR[1] - LifeBar.MARGIN),
-            (SCR[0] - LifeBar.MARGIN, SCR[1] - LifeBar.MARGIN),
-            (SCR[0] - LifeBar.MARGIN, SCR[1] - LifeBar.MARGIN - LifeBar.UNIT),
+            (
+                self.screen[0] - LifeBar.MARGIN - LifeBar.UNIT,
+                self.screen[1] - LifeBar.MARGIN,
+            ),
+            (self.screen[0] - LifeBar.MARGIN, self.screen[1] - LifeBar.MARGIN),
+            (
+                self.screen[0] - LifeBar.MARGIN,
+                self.screen[1] - LifeBar.MARGIN - LifeBar.UNIT,
+            ),
         ]
         glPushMatrix()
         glLoadIdentity()
@@ -250,7 +261,7 @@ class Mine(Shape):
 
 
 class MineExplosion(Explosion):
-    MAX_FRAMES = 50
+    NO_FRAMES = 50
 
     def __init__(self, pos, color):
         super().__init__(self, pos, color)
@@ -268,14 +279,15 @@ class ReloadingBar:
     HEIGHT = 10.0  # px
     COLOR = [0.3, 0.05, 0.0]
 
-    def __init__(self):
+    def __init__(self, screen_width):
         self.width = 0
         self.height = 0
+        self.screen_width = screen_width
 
     def fire(self):
         """Call right after the player fires."""
 
-        self.width = SCR[0]
+        self.width = self.screen_width
         self.height = 0
         self.spawn_time = time.time()
 
@@ -304,7 +316,9 @@ class ReloadingBar:
             )
 
         if reloading > 0.0:
-            self.width = SCR[0] * ((reloading - current_time) / Tank.RELOAD_TIME)
+            self.width = self.screen_width * (
+                (reloading - current_time) / Tank.RELOAD_TIME
+            )
 
         # TODO: remove the int(round())s and see if anything breaks
         pts = np.array(
@@ -567,7 +581,7 @@ class VictoryBanner:
     FINAL_SCALE = 1.0
     DIFF_SCALE = FINAL_SCALE - ZOOM_SCALE
 
-    def __init__(self):
+    def __init__(self, screen):
         # generate texture
         glEnable(GL_TEXTURE_2D)
         self.texture = glGenTextures(1)
@@ -590,6 +604,7 @@ class VictoryBanner:
         glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST)
 
         self.spawn_time = time.time()
+        self.screen = screen
 
     def draw(self):
         """Draw the text overlay. I stole 99% of this class from Astrocrash."""
@@ -605,8 +620,9 @@ class VictoryBanner:
         glPushMatrix()
         glLoadIdentity()
 
-        half_width = int(SCR[0] / 2)
-        half_height = int(SCR[1] / 2)
+        # TODO: some of these calculations can be moved from draw() to __init__()
+        half_width = int(self.screen[0] / 2)
+        half_height = int(self.screen[1] / 2)
 
         half_texwidth = int(self.width / 2) * zoomscale
         half_texheight = int(self.height / 2) * zoomscale
@@ -642,4 +658,8 @@ class VictoryBanner:
 def setup_explosion():
     """Set shape gllists from utils_3d.setup_explosion."""
     # TODO: isn't it un-Pythonic to set class-wide variables like this? What's a cleaner alternative?
-    Explosion.base_gllists, Explosion.turret_gllists, MineExplosion.gllists = utils_3d.setup_explosion()
+    (
+        Explosion.base_gllists,
+        Explosion.turret_gllists,
+        MineExplosion.gllists,
+    ) = utils_3d.setup_explosion(Explosion.NO_FRAMES, MineExplosion.NO_FRAMES)

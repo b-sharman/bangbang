@@ -120,14 +120,14 @@ def read_obj_file(filename: str):
     return (vertices, faces, normals)
 
 
-def setup_explosion() -> tuple[list["gllist"]]:
+def setup_explosion(no_explosion_frames, no_mine_frames) -> tuple[list["gllist"]]:
     """
     Create gllists for Explosions and MineExplosions.
 
     Return explosion base gllists, explosion turret gllists, and mine explosion gllists.
     """
     base_gllists = []
-    for i in range(1, NO_EXPLOSION_FRAMES + 1):
+    for i in range(1, no_explosion_frames + 1):
         gllist = glGenLists(1)
         glNewList(gllist, GL_COMPILE)
         exec_raw(f"../data/models/explosions/base_explosion_{i:06}.raw")
@@ -135,7 +135,7 @@ def setup_explosion() -> tuple[list["gllist"]]:
         base_gllists.append(gllist)
 
     turret_gllists = []
-    for i in range(1, NO_EXPLOSION_FRAMES + 1):
+    for i in range(1, no_explosion_frames + 1):
         gllist = glGenLists(1)
         glNewList(gllist, GL_COMPILE)
         exec_raw(f"../data/models/explosions/turret_explosion_{i:06}.raw")
@@ -143,7 +143,7 @@ def setup_explosion() -> tuple[list["gllist"]]:
         turret_gllists.append(gllist)
 
     mine_gllists = []
-    for i in range(1, MineExplosion.MAX_FRAMES + 1):
+    for i in range(1, no_mine_frames + 1):
         gllist = glGenLists(1)
         glNewList(gllist, GL_COMPILE)
         exec_raw(f"../data/models/explosions/mine_explosion_{i:06}.raw")
