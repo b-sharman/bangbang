@@ -28,5 +28,3 @@ class Shape(Timer):
 
     def die(self):
         self.alive = False
-
-
