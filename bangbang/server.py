@@ -386,7 +386,7 @@ async def main() -> None:
 
 if __name__ == "__main__":
     logger = logging.getLogger("websockets")
-    logger.setLevel(logging.DEBUG)
+    logger.setLevel(logging.INFO)
     logging.root.setLevel(logging.DEBUG)
     logger.addHandler(logging.StreamHandler())
 

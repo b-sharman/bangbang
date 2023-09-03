@@ -86,4 +86,4 @@ class Client:
                         tg.create_task(self.game.assign_name())
                         created_name_task = True
 
-                    await self.game.handle_message(message, tg)
+                    await self.game.handle_message(message)
