@@ -50,34 +50,33 @@ class Ground(Shape):
     """A plane that serves as the ground."""
 
     COLOR = (0.1, 0.3, 0.0)
+    POS = (0, 0, 0)
 
-    def __init__(self):
+    def __init__(self, ground_hw):
         super().__init__()
-        self.pos = np.zeros(3)
 
-    def gen_list(self, ground_hw):
-        """Generate the gllist for the ground."""
+        # generate a gllist
         Ground.gllist = glGenLists(1)
         glNewList(Ground.gllist, GL_COMPILE)
         glBegin(GL_POLYGON)
         glNormal(0.0, 1.0, 0.0)
-        glVertex(self.pos[0] - ground_hw, self.pos[1], self.pos[2] - ground_hw)
+        glVertex(self.POS[0] - ground_hw, self.POS[1], self.POS[2] - ground_hw)
         glNormal(0.0, 1.0, 0.0)
-        glVertex(self.pos[0] + ground_hw, self.pos[1], self.pos[2] - ground_hw)
+        glVertex(self.POS[0] + ground_hw, self.POS[1], self.POS[2] - ground_hw)
         glNormal(0.0, 1.0, 0.0)
-        glVertex(self.pos[0] + ground_hw, self.pos[1], self.pos[2] + ground_hw)
+        glVertex(self.POS[0] + ground_hw, self.POS[1], self.POS[2] + ground_hw)
         glNormal(0.0, 1.0, 0.0)
-        glVertex(self.pos[0] - ground_hw, self.pos[1], self.pos[2] + ground_hw)
+        glVertex(self.POS[0] - ground_hw, self.POS[1], self.POS[2] + ground_hw)
         glNormal(0.0, 1.0, 0.0)
         # the last point must close the square
-        glVertex(self.pos[0] - ground_hw, self.pos[1], self.pos[2] - ground_hw)
+        glVertex(self.POS[0] - ground_hw, self.POS[1], self.POS[2] - ground_hw)
         glEnd()
         glEndList()
 
     def update(self):
         glPushMatrix()
         glColor(*Ground.COLOR)
-        glTranslate(*self.pos)
+        glTranslate(*self.POS)
         glCallList(Ground.gllist)
         glPopMatrix()
 
@@ -274,6 +273,7 @@ class MineExplosion(Explosion):
         glPopMatrix()
 
 
+# NOTE TO SELF: if this isn't appearing, make sure it is the last shape drawn
 class ReloadingBar:
     RISE_DURATION = 0.35  # s
     HEIGHT = 10.0  # px

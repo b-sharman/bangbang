@@ -140,7 +140,6 @@ class Server:
         # turn the bbutils.Message into a JSON-formated str
         data = json.dumps(message)
         websockets.broadcast([c.ws for c in self.clients], data)
-        logging.debug(f"broadcasted the following: {data}")
 
     def start_game(self) -> None:
         """Call this method when the game starts."""
