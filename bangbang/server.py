@@ -217,6 +217,90 @@ class Server:
         """Code that should go in __init__ but needs to be awaited."""
         await self.server.initialize(self.listen_for_start)
 
+    def collisions(self) -> None:
+        """Check for and handle all shape collisions."""
+        # not implemented yet
+        return
+
+        # check for collisions
+        for hill in hills:
+            # tank vs. hill
+            if collide_hill(player, hill, False, player.bout):
+                # Calculate a vector away from the hill. Does that make sense? :P
+                # away = utils_3d.normalize(hill.pos - player.pos)
+                away = utils_3d.normalize(player.pos - hill.pos)
+
+                # back up the player so they aren't permanently stuck
+                player.pos += away * 10
+                player.speed = 0.0
+
+            # shell vs. hill
+            for shell in shells:
+                if collide_hill(shell, hill, is_shell=True):
+                    shell.hill()
+
+        for shell in playershells:
+            pos = shell.pos.copy()
+            pos[1] = 0.0
+            pos = DummyPos(pos)
+            for tank in tanks:
+                if (
+                    collide_tank(pos, tank, tank.bout)
+                    and (not shell.hit_hill)
+                    and (shell.name != tank.name)
+                ):
+                    explosion.play()
+                    shell.die()
+
+        for mine in mines:
+            for tank in tanks:
+                if collide_mine(mine, tank, tank.bout) and mine.name != tank.name:
+                    mine.die()
+                    deadmine_id = mine.id
+
+        for tree in trees:
+            for tank in tanks + [player]:
+                if collide_tank(tree, tank, tank.bout) and not tree.falling.any():
+                    tree.fall(tank.bright, tank.speed)
+
+        for tank in tanks:
+            if collide_tanktank(tank, player, tank.bout, player.bout):
+                crash.play()
+
+                bad_tank = offender(tank, player)
+                if bad_tank.name == tank.name:
+                    tank.pos -= tank.bout * COLLISION_SPRINGBACK
+                    player.pos += tank.bout * COLLISION_SPRINGBACK
+                    for hill in hills:
+                        if collide_hill(tank, hill, False, tank.bout):
+                            tank.pos += tank.bout * COLLISION_SPRINGBACK
+                        if collide_hill(player, hill, False, player.bout):
+                            player.pos -= tank.bout * COLLISION_SPRINGBACK
+                else:
+                    player.pos -= player.bout * COLLISION_SPRINGBACK
+                    tank.pos += player.bout * COLLISION_SPRINGBACK
+                    for hill in hills:
+                        if collide_hill(tank, hill, False, tank.bout):
+                            tank.pos = (20 + COLLISION_SPRINGBACK) * utils_3d.normalize(
+                                tank.pos - hill.pos
+                            ) + hill.pos
+                        if collide_hill(player, hill, False, player.bout):
+                            player.pos = (
+                                20 + COLLISION_SPRINGBACK
+                            ) * utils_3d.normalize(player.pos - hill.pos) + hill.pos
+                for tree in trees:
+                    if collide_tank(tree, tank, tank.bout) and not tree.falling.any():
+                        tree.fall(bad_tank.bright, 0.5)
+                    if collide_tank(tree, player, tank.bout) and not tree.falling.any():
+                        tree.fall(bad_tank.bright, 0.5)
+                tank.speed = 0.0
+                player.speed = 0.0
+
+        for shell in shells:
+            for i in range(len(shell.pos)):
+                if shell.pos[i] > game.ground_hw or shell.pos[i] < -game.ground_hw:
+                    shell.hill()
+
     async def listen_for_start(self) -> None:
         """Start the game upon receiving proper user input."""
         print(f"Type '{constants.SERVER_START_KEYWORD}' at any time to start the game.")

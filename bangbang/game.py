@@ -18,6 +18,7 @@ import utils_3d
 import bbutils
 from client import Client, PlayerData
 import constants
+import server
 import shapes
 
 # did we win?
@@ -170,7 +171,10 @@ class Game:
 
         ground = shapes.Ground(self.ground_hw)
         lifebar = shapes.LifeBar(self.players[self.player_id], SCR)
-        reloadingbar = shapes.ReloadingBar(SCR[0])
+        # reloading is the time at which the player can fire again
+        # it must be defined here since ReloadingBar accesses it
+        self.reloading = time.time()
+        self.reloadingbar = shapes.ReloadingBar(SCR[0], self)
 
         self.groups.hills = [shapes.Hill(pos) for pos in self.hill_poses]
         self.groups.trees = [shapes.Tree(pos) for pos in self.tree_poses]
@@ -179,16 +183,13 @@ class Game:
         self.groups.mines = []
 
         # Make all_shapes
-        self.groups.all_shapes = [ground, lifebar, reloadingbar] + self.groups.hills + self.groups.trees + self.groups.tanks + self.groups.shells + self.groups.mines
+        self.groups.all_shapes = [ground, lifebar, self.reloadingbar] + self.groups.hills + self.groups.trees + self.groups.tanks + self.groups.shells + self.groups.mines
 
         # TODO: implement a reloading timer for dropping mines
         # It should probably not be implemented here in the main loop, but that's where
         # this comment is because it used to be implemented here
 
     async def start_main_loop(self):
-        # reloading is the time at which the player can fire again
-        reloading = time.time()
-
         # timestamp of the final frame
         end_time = None
 
@@ -211,9 +212,71 @@ class Game:
                 # this breaks out of the while loop
                 end_time = frame_start_time
 
-            # artificially slow the loop to preserve CPU
-            # this should be removed once the full loop code is in place
-            await asyncio.sleep(0.01)
+            # clear everything
+            glLoadIdentity()
+            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
+
+            # set up the observer
+            # choose the camera attributes based on whether we're playing or spectating
+            # TODO; How expensive is hasattr? It could be replaced by a
+            # self.is_spectating variable or a class that stores just the pos and out
+            # of either the player or the spectator.
+            if hasattr(self, "spectator"):
+                pos = self.spectator.pos
+                out = self.spectator.out
+            else:
+                pos = np.array(self.player_data.pos)
+                # TODO: define a constant for this magic number
+                pos[1] = 6.0
+                out = np.array(self.player_data.tout)
+                at = out + pos
+            gluLookAt(*pos, *at, *constants.UP)
+
+            for shape in self.groups.all_shapes:
+                shape.update()
+
+            # make bullet on space
+            # TODO: move this to the server
+            if (
+                pygame.key.get_pressed()[pygame.K_SPACE]
+                and self.reloading < time.time()
+                and self.player_data.alive
+                and end_time is None
+            ):
+                # TODO: Wouldn't it be cleaner to move this code either to
+                # Shell.__init__ or a Shell factory function?
+                temp_tout = np.array(self.player_data.tout) + (np.array(player.bout) * player.speed) / Shell.SPEED
+                temp_pos = np.array(self.player_data.pos) + Shell.START_DISTANCE * np.array(
+                    self.player_data.tout
+                )
+                shell = Shell(temp_pos, temp_tout, self.player_data.tangle, "Gandalf")
+                self.groups.shells.append(shell)
+                self.groups.all_shapes.append(shell)
+
+                # set reloading bar to full
+                self.reloadingbar.fire()
+
+                self.reloading = time.time() + server.Tank.RELOAD_TIME
+
+            # TODO: add networking to this
+            if pygame.key.get_pressed()[pygame.K_b] and self.player_data.alive and end_time is None:
+                pass
+                # mine = Mine(player.name, player.pos, player.color)
+                # mines.append(mine)
+                # all_shapes.append(mine)
+                # mine_reload = Mine.RELOAD
+
+                # if (not won) and (not hasattr(self, "spectator")):
+                #     self.spectator = Spectator(
+                #         player.pos, player.tout, constants.UP, player.tright, player.tangle
+                #     )
+                #     self.groups.all_shapes.append(self.spectator)
+                # # TODO: simplify this confusing endgame logic
+                # if (len(tanks) == 1) or won:
+                #     end_time = frame_start_time + 3
+                #     pygame.mixer.music.fadeout(3000)
+
+            pygame.display.flip()
 
             frame_end_time = time.time()
             frame_length = frame_end_time - frame_start_time
@@ -274,153 +337,3 @@ async def main(host, no_music):
     except (socket.gaierror, OSError):
         logging.error(f"could not connect to {host}")
         exit()
-
-async def rest_of_main(game, no_music):
-        # clear everything
-        glLoadIdentity()
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
-
-        # set up the observer
-        # choose the camera attributes based on whether we're playing or spectating
-        if spectating:
-            pos = spectator.pos
-            out = spectator.out
-        else:
-            pos = np.array(game.players[game.player_id].pos)
-            pos[1] = 6.0
-            out = game.players[game.player_id].tout
-            at = out + pos
-
-        gluLookAt(*pos, *at, *constants.UP)
-
-        for shape in all_shapes:
-            shape.update()
-
-        # make bullet on space
-        # TODO: add networking to this
-        if (
-            pygame.key.get_pressed()[pygame.K_SPACE]
-            and reloading < time.time()
-            and player.alive
-            and end_time is None
-        ):
-            temp_tout = player.tout + (player.bout * player.speed) / Shell.SPEED
-            temp_pos = np.array(player.pos) + Shell.START_DISTANCE * np.array(
-                player.tout
-            )
-            shell = Shell(temp_pos, temp_tout, player.tangle, "Gandalf")
-            shells.append(shell)
-            playershells.append(shell)
-            all_shapes.append(shell)
-
-            # set reloading bar to full
-            reloadingbar.fire()
-
-            reloading = time.time() + Tank.RELOAD_TIME
-
-        # TODO: add networking to this
-        if pygame.key.get_pressed()[pygame.K_b] and player.alive and end_time is None:
-            mine = Mine(player.name, player.pos, player.color)
-            mines.append(mine)
-            all_shapes.append(mine)
-            mine_reload = Mine.RELOAD
-
-            if (not won) and (not spectating):
-                # we died, now enter spectate mode.
-                spectating = True
-
-                spectator = Spectator(
-                    player.pos, player.tout, constants.UP, player.tright, player.tangle
-                )
-                all_shapes.append(spectator)
-            # TODO: simplify this confusing endgame logic
-            if (len(tanks) == 1) or won:
-                end_time = frame_start_time + 3
-                pygame.mixer.music.fadeout(3000)
-
-        # check for collisions
-        for hill in hills:
-            # tank vs. hill
-            if collide_hill(player, hill, False, player.bout):
-                # Calculate a vector away from the hill. Does that make sense? :P
-                # away = utils_3d.normalize(hill.pos - player.pos)
-                away = utils_3d.normalize(player.pos - hill.pos)
-
-                # back up the player so they aren't permanently stuck
-                player.pos += away * 10
-                player.speed = 0.0
-
-            # shell vs. hill
-            for shell in shells:
-                if collide_hill(shell, hill, is_shell=True):
-                    shell.hill()
-
-        for shell in playershells:
-            pos = shell.pos.copy()
-            pos[1] = 0.0
-            pos = DummyPos(pos)
-            for tank in tanks:
-                if (
-                    collide_tank(pos, tank, tank.bout)
-                    and (not shell.hit_hill)
-                    and (shell.name != tank.name)
-                ):
-                    explosion.play()
-                    shell.die()
-
-        for mine in mines:
-            for tank in tanks:
-                if collide_mine(mine, tank, tank.bout) and mine.name != tank.name:
-                    mine.die()
-                    deadmine_id = mine.id
-
-        for tree in trees:
-            for tank in tanks + [player]:
-                if collide_tank(tree, tank, tank.bout) and not tree.falling.any():
-                    tree.fall(tank.bright, tank.speed)
-
-        for tank in tanks:
-            if collide_tanktank(tank, player, tank.bout, player.bout):
-                crash.play()
-
-                bad_tank = offender(tank, player)
-                if bad_tank.name == tank.name:
-                    tank.pos -= tank.bout * COLLISION_SPRINGBACK
-                    player.pos += tank.bout * COLLISION_SPRINGBACK
-                    for hill in hills:
-                        if collide_hill(tank, hill, False, tank.bout):
-                            tank.pos += tank.bout * COLLISION_SPRINGBACK
-                        if collide_hill(player, hill, False, player.bout):
-                            player.pos -= tank.bout * COLLISION_SPRINGBACK
-                else:
-                    player.pos -= player.bout * COLLISION_SPRINGBACK
-                    tank.pos += player.bout * COLLISION_SPRINGBACK
-                    for hill in hills:
-                        if collide_hill(tank, hill, False, tank.bout):
-                            tank.pos = (20 + COLLISION_SPRINGBACK) * utils_3d.normalize(
-                                tank.pos - hill.pos
-                            ) + hill.pos
-                        if collide_hill(player, hill, False, player.bout):
-                            player.pos = (
-                                20 + COLLISION_SPRINGBACK
-                            ) * utils_3d.normalize(player.pos - hill.pos) + hill.pos
-                for tree in trees:
-                    if collide_tank(tree, tank, tank.bout) and not tree.falling.any():
-                        tree.fall(bad_tank.bright, 0.5)
-                    if collide_tank(tree, player, tank.bout) and not tree.falling.any():
-                        tree.fall(bad_tank.bright, 0.5)
-                tank.speed = 0.0
-                player.speed = 0.0
-
-        for shell in shells:
-            for i in range(len(shell.pos)):
-                if shell.pos[i] > game.ground_hw or shell.pos[i] < -game.ground_hw:
-                    shell.hill()
-
-        pygame.display.flip()
-
-        # discard the oldest frame length and add the newest one
-        fps_history = np.roll(fps_history, -1)
-        frame_end_time = time.time()
-        fps_history[-1] = frame_end_time - frame_start_time
-                # close the pygame window

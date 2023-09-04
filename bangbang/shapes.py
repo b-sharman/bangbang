@@ -6,6 +6,7 @@ import pygame
 
 from base_shapes import Shape
 from client import PlayerData
+import constants
 import utils_3d
 
 pygame.mixer.init()
@@ -119,7 +120,7 @@ class LifeBar:
         self.screen = screen
         self.newimg_stuff()
 
-    def draw(self):
+    def update(self):
         """Draw the LifeBar overlay."""
 
         glPushMatrix()
@@ -265,7 +266,7 @@ class MineExplosion(Explosion):
     def __init__(self, pos, color):
         super().__init__(self, pos, color)
 
-    def draw(self):
+    def update(self):
         glPushMatrix()
         glColor(*self.color)
         glTranslate(*self.pos)
@@ -279,10 +280,12 @@ class ReloadingBar:
     HEIGHT = 10.0  # px
     COLOR = [0.3, 0.05, 0.0]
 
-    def __init__(self, screen_width):
+    def __init__(self, screen_width: int, game):
         self.width = 0
         self.height = 0
         self.screen_width = screen_width
+        # for a pointer to reloading
+        self.game = game
 
     def fire(self):
         """Call right after the player fires."""
@@ -291,33 +294,33 @@ class ReloadingBar:
         self.height = 0
         self.spawn_time = time.time()
 
-    def draw(self, reloading):
+    def update(self):
         """Draw the reloading bar"""
         current_time = time.time()
 
         # if the player is not currently reloading, do not draw anything
-        if current_time > reloading:
+        if current_time > self.game.reloading:
             return
 
         # slide-up animation
         if (
             self.width > 0.0
-            and self.height < ReloadingBar.HEIGHT
-            and self.width > ReloadingBar.HEIGHT
+            and self.height < self.HEIGHT
+            and self.width > self.HEIGHT
         ):
             self.height = self.HEIGHT * (
                 (time.time() - self.spawn_time) / self.RISE_DURATION
             )
 
         # slide-down animation
-        if self.width <= ReloadingBar.HEIGHT and self.width > 0.0:
+        if self.width <= self.HEIGHT and self.width > 0.0:
             self.height = self.HEIGHT * (
                 1 - ((time.time() - self.spawn_time) / self.RISE_DURATION)
             )
 
-        if reloading > 0.0:
+        if self.game.reloading > 0.0:
             self.width = self.screen_width * (
-                (reloading - current_time) / Tank.RELOAD_TIME
+                (self.game.reloading - current_time) / Tank.RELOAD_TIME
             )
 
         # TODO: remove the int(round())s and see if anything breaks
@@ -334,7 +337,7 @@ class ReloadingBar:
         glPushMatrix()
         glLoadIdentity()
         glDisable(GL_LIGHTING)
-        glColor(*ReloadingBar.COLOR)
+        glColor(*self.COLOR)
 
         glBegin(GL_POLYGON)
         pts = utils_3d.window2view(pts)
@@ -606,7 +609,7 @@ class VictoryBanner:
         self.spawn_time = time.time()
         self.screen = screen
 
-    def draw(self):
+    def update(self):
         """Draw the text overlay. I stole 99% of this class from Astrocrash."""
         if current_time := time.time() < self.spawn_time + self.ZOOM_DURATION:
             zoomscale = max(
