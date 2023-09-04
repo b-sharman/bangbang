@@ -1,5 +1,6 @@
 # TODO: find it out if it makes sense to make all update() functions coroutines
 import asyncio
+import contextlib
 import logging
 import math
 import socket
@@ -8,8 +9,10 @@ import types
 
 import aioconsole
 import numpy as np
-import pygame
-from pygame.constants import *
+# hides pygame contribute message
+with contextlib.redirect_stdout(None):
+    import pygame
+    from pygame.constants import *
 
 from OpenGL.GL import *
 from OpenGL.GLU import *
