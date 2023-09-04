@@ -1,7 +1,10 @@
+import contextlib
 import enum
 
 import numpy as np
-from pygame.constants import *
+# hides pygame contribute message
+with contextlib.redirect_stdout(None):
+    from pygame.constants import *
 
 # determines the size of the ground
 AREA_PER_PLAYER = 125000  # m^2

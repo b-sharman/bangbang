@@ -1,8 +1,11 @@
+import contextlib
 import time
 
 from OpenGL.GL import *
 import numpy as np
-import pygame
+# hides pygame contribute message
+with contextlib.redirect_stdout(None):
+    import pygame
 
 from base_shapes import Shape
 from client import PlayerData
