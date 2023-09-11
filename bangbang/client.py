@@ -32,6 +32,10 @@ class PlayerData:
         """
         self.__dict__.update(state)
 
+    @property
+    def alive(self):
+        return self.hits_left > 0
+
     # TODO: this is duplicated code from server.Tank - find a way to reuse it
     @property
     def bout(self):
