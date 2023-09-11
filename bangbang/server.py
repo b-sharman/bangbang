@@ -211,7 +211,7 @@ class Tank(base_shapes.Shape):
 
 class Server:
     def __init__(self) -> None:
-        self.server = server_network.Server()
+        self.server = server_network.ServerNetwork(self)
 
     async def initialize(self) -> None:
         """Code that should go in __init__ but needs to be awaited."""
@@ -300,6 +300,20 @@ class Server:
             for i in range(len(shell.pos)):
                 if shell.pos[i] > game.ground_hw or shell.pos[i] < -game.ground_hw:
                     shell.hill()
+
+    async def handle_message(self, message: dict) -> None:
+        """Handle a JSON-loaded dict network message."""
+        match message["type"]:
+            case constants.Msg.GREET:
+                # TODO: find some way to prevent name collision
+                #       (i.e., more than one player requesting the same name)
+                self.tanks[message["id"]].name = message["name"]
+                print(f"{message['name']} has joined.")
+
+            case constants.Msg.REQUEST:
+                # Isn't it expensive to make new sets? Perhaps a new datatype should
+                # be used for Tank.actions
+                self.tanks[message["id"]].actions = set(message["actions"])
 
     async def listen_for_start(self) -> None:
         """Start the game upon receiving proper user input."""
@@ -439,7 +453,7 @@ class Server:
                 # can't be too close to a tank
                 if valid:
                     for tank_pos in tank_poses:
-                        if utils_3d.mag(pos - tank_pos) < constants.MIN_SPAWN_DIST:
+                        if utils_3d.mag(np.array(pos) - np.array(tank_pos)) < constants.MIN_SPAWN_DIST:
                             valid = False
                             break
             tank_poses.append(pos)

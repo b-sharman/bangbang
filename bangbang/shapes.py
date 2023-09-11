@@ -79,13 +79,16 @@ class Ground(Shape):
 
     def update(self):
         glPushMatrix()
-        glColor(*Ground.COLOR)
+        glColor(*self.COLOR)
         glTranslate(*self.POS)
-        glCallList(Ground.gllist)
+        glCallList(self.gllist)
         glPopMatrix()
 
 
 class Hill(Shape):
+
+    COLOR = (0.1, 0.3, 0.0)
+
     def __init__(self, pos):
         super().__init__()
         if Hill.gllist == "Unknown":
@@ -98,7 +101,7 @@ class Hill(Shape):
 
     def update(self):
         glPushMatrix()
-        glColor(0.1, 0.3, 0.0)
+        glColor(self.COLOR)
         glTranslate(*self.pos)
         glCallList(Hill.gllist)
         glPopMatrix()
@@ -137,10 +140,7 @@ class LifeBar:
         glEnable(GL_TEXTURE_2D)
         self.texture = glGenTextures(1)
         glBindTexture(GL_TEXTURE_2D, self.texture)
-        try:
-            self.current_image = LifeBar.IMGS[self.player_data.hits_left]
-        except IndexError:
-            pass
+        self.current_image = LifeBar.IMGS[self.player_data.hits_left]
         glTexImage2D(
             GL_TEXTURE_2D,
             0,
@@ -154,6 +154,7 @@ class LifeBar:
         )
         glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST)
         glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST)
+        glDisable(GL_TEXTURE_2D)
 
         # draw the texture into a display list
         pts = [
@@ -185,7 +186,9 @@ class LifeBar:
         # draw the model
         glColor(1.0, 1.0, 1.0)  # ?
         glDisable(GL_LIGHTING)
+        glEnable(GL_TEXTURE_2D)
         glBindTexture(GL_TEXTURE_2D, self.texture)
+
         glBegin(GL_QUADS)
         glTexCoord2f(0.0, 0.0)
         glVertex(pts[0])
@@ -196,9 +199,12 @@ class LifeBar:
         glTexCoord2f(1.0, 0.0)
         glVertex(pts[3])
         glEnd()
+
+        glDisable(GL_TEXTURE_2D)
         glEnable(GL_LIGHTING)
 
         glDisable(GL_BLEND)
+
         glEndList()
         glPopMatrix()
 

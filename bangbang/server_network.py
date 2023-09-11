@@ -10,6 +10,7 @@ import websockets.server  # only for typing, is that bad?
 
 import bbutils
 import constants
+import server
 
 
 def get_local_ip():
@@ -33,19 +34,20 @@ class Client:
 
     def __init__(
         self,
-        server: "Server",
+        s: server.Server,
         ws: websockets.server.WebSocketServer,
         tg: asyncio.TaskGroup,
+        client_id: int,
     ) -> None:
         """Warning: only create Client instances within the tg context manager."""
 
-        self.server = server
+        self.server = s
         self.ws = ws
 
         # set by a REQUEST message
         self.actions = set()
         # assign this client a unique id
-        self.client_id = self.server.get_next_id()
+        self.client_id = client_id
         # set by a GREET message
         self.name = None
 
@@ -61,21 +63,11 @@ class Client:
         async for json_message in self.ws:
             # convert JSON string to dict
             message = json.loads(json_message)
-
-            match message["type"]:
-                case constants.Msg.GREET:
-                    # TODO: find some way to prevent name collision
-                    #       (i.e., more than one player requesting the same name)
-                    self.name = message["name"]
-                    print(f"{message['name']} has joined.")
-
-                case constants.Msg.REQUEST:
-                    # update actions
-                    self.actions = message["actions"]
+            await self.server.handle_message(message)
 
 
-class Server:
-    def __init__(self) -> None:
+class ServerNetwork:
+    def __init__(self, s: server.Server) -> None:
         try:
             self.ip = get_local_ip()
         except RuntimeError as m:
@@ -86,6 +78,8 @@ class Server:
         self.game_running = False
 
         self.clients: set[Client] = set()
+
+        self.server = s
 
         # the id that will be assigned to the next client
         # can't do something as simple as len(self.clients) because a client might
@@ -122,7 +116,7 @@ class Server:
 
         async with asyncio.TaskGroup() as tg:
             # add ws to the self.clients set and remove it upon disconnect
-            client = Client(self, ws, tg)
+            client = Client(self.server, ws, tg, self.get_next_id())
             await client.initialize()
             self.clients.add(client)
             logging.debug(f"added player with id {client.client_id}")

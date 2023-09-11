@@ -46,7 +46,6 @@ class Game:
         # used to block opening the window until the game has started
         self.start_event = asyncio.Event()
 
-        self.input_handler = PlayerInputHandler(self)
         # id of the player playing on this computer
         # assigned upon receiving an ID message
         self.player_id = None
@@ -73,14 +72,21 @@ class Game:
             # wait until the server sends a start signal
             await self.start_event.wait()
 
-            # run CPU-intensive code in a non-blocking way
-            # https://docs.python.org/3/library/asyncio-dev.html#running-blocking-code
-            await asyncio.get_running_loop().run_in_executor(None, self.initialize_graphics)
+            # Unfortunately, run_in_executor can't be used here because all OpenGL
+            # calls have to be run from the same thread. So hopefully it's not a huge
+            # deal that the async loop is being blocked by this function for a little
+            # bit...
+            self.initialize_graphics()
 
             await self.start_main_loop()
 
+            self.input_handler_task.cancel()
+            # start_main_loop() has ended; close the pygame window
+            pygame.quit()
+
     async def assign_name(self) -> None:
         name = await aioconsole.ainput("Enter your name: ")
+        print("Waiting for the game to start...")
         await self.client.greet(name)
 
     async def handle_message(self, message: dict) -> None:
@@ -113,9 +119,6 @@ class Game:
 
                 # allow the main game loop to start
                 self.start_event.set()
-                # start listening for keyboard input
-                # self.tg is defined in initialize
-                self.tg.create_task(self.input_handler.run())
 
     def initialize_graphics(self):
         """
@@ -125,7 +128,8 @@ class Game:
         but needs to be done before the main loop can start.
         """
         # initialize pygame to display OpenGL
-        screen = pygame.display.set_mode(flags=OPENGL | DOUBLEBUF | FULLSCREEN | HWSURFACE)
+        # screen = pygame.display.set_mode(flags=OPENGL | DOUBLEBUF | FULLSCREEN | HWSURFACE)
+        screen = pygame.display.set_mode((640, 480), flags=OPENGL | DOUBLEBUF | HWSURFACE)
         SCR = (screen.get_width(), screen.get_height())
 
         # hide the mouse
@@ -188,6 +192,11 @@ class Game:
         # Make all_shapes
         self.groups.all_shapes = [ground, lifebar, self.reloadingbar] + self.groups.hills + self.groups.trees + self.groups.tanks + self.groups.shells + self.groups.mines
 
+        # start listening for keyboard input
+        # self.tg is defined in initialize
+        input_handler = PlayerInputHandler(self)
+        self.input_handler_task = self.tg.create_task(input_handler.run())
+
         # TODO: implement a reloading timer for dropping mines
         # It should probably not be implemented here in the main loop, but that's where
         # this comment is because it used to be implemented here
@@ -216,8 +225,8 @@ class Game:
                 end_time = frame_start_time
 
             # clear everything
-            glLoadIdentity()
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
+            glLoadIdentity()
 
             # set up the observer
             # choose the camera attributes based on whether we're playing or spectating
@@ -281,11 +290,11 @@ class Game:
 
             pygame.display.flip()
 
+            # allow other async stuff (including networking) to take over
+            await asyncio.sleep(0)
+
             frame_end_time = time.time()
             frame_length = frame_end_time - frame_start_time
-
-        # close the pygame window
-        pygame.quit()
 
     @property
     def player_data(self) -> PlayerData:
@@ -306,23 +315,22 @@ class PlayerInputHandler:
 
     async def run(self) -> None:
         """Interface to send requests to the server."""
-        keys = pygame.key.get_pressed()
-        actions: list[constants.Action] = [
-            action
-            for key_combo, action in constants.KEYMAP
-            if all(
-                {keys[k] for k in key_combo}
-            )  # if all the keys in the combo are pressed
-        ]
-        if actions != self.prev_actions:
-            await self.game.client.send_actions(actions)
-            self.prev_actions = actions
+        while self.game.player_data.alive:
+            try:
+                pressed = pygame.key.get_pressed()
+                actions: list[constants.Action] = [
+                    action
+                    for key_combo, action in constants.KEYMAP
+                    # if all the keys in the combo are pressed
+                    if all([pressed[k] for k in key_combo])  
+                ]
+                if actions != self.prev_actions:
+                    await self.game.client.send_actions(actions)
+                    self.prev_actions = actions
+                await asyncio.sleep(constants.INPUT_CHECK_WAIT)
 
-        # recursion!
-        # TODO: make a constant for this magic number
-        await asyncio.sleep(0.01)
-        # TODO: find a way to uncomment this - currently it blocks the async loop, I'm afraid
-        # await self.run()
+            except asyncio.CancelledError:
+                print("cancl")
 
 
 async def main(host, no_music):
