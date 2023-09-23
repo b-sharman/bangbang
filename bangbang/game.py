@@ -21,13 +21,7 @@ import utils_3d
 import bbutils
 from client import Client, PlayerData
 import constants
-import server
 import shapes
-
-# did we win?
-won = False
-# are we in spectate mode?
-spectating = False
 
 COLLISION_SPRINGBACK = 10.0  # m
 
@@ -67,7 +61,7 @@ class Game:
     async def initialize(self, ip: str) -> None:
         """Things that can't go in __init__ because they're coros"""
         async with asyncio.TaskGroup() as self.tg:
-            self.tg.create_task(self.client.start(ip))
+            client_task = self.tg.create_task(self.client.start(ip))
 
             # wait until the server sends a start signal
             await self.start_event.wait()
@@ -80,7 +74,9 @@ class Game:
 
             await self.start_main_loop()
 
+            # the following code runs after the main loop terminates
             self.input_handler_task.cancel()
+            client_task.cancel()
             # start_main_loop() has ended; close the pygame window
             pygame.quit()
 
@@ -257,7 +253,7 @@ class Game:
             ):
                 # TODO: Wouldn't it be cleaner to move this code either to
                 # Shell.__init__ or a Shell factory function?
-                temp_tout = np.array(self.player_data.tout) + (np.array(player.bout) * player.speed) / Shell.SPEED
+                temp_tout = np.array(self.player_data.tout) + (np.array(self.player_data.bout) * self.player_data.speed) / Shell.SPEED
                 temp_pos = np.array(self.player_data.pos) + Shell.START_DISTANCE * np.array(
                     self.player_data.tout
                 )
@@ -268,7 +264,7 @@ class Game:
                 # set reloading bar to full
                 self.reloadingbar.fire()
 
-                self.reloading = time.time() + server.Tank.RELOAD_TIME
+                self.reloading = time.time() + constants.Tank.RELOAD_TIME
 
             # TODO: add networking to this
             if pygame.key.get_pressed()[pygame.K_b] and self.player_data.alive and end_time is None:
@@ -307,14 +303,10 @@ class PlayerInputHandler:
     def __init__(self, game: Game) -> None:
         self.game = game
 
-        # the value of pygame.key.get_pressed last frame
-        self.prev_keymap = pygame.key.get_pressed()
-
-        # to avoid sending the same set of actions twice in a row
-        self.prev_actions = None
-
     async def run(self) -> None:
         """Interface to send requests to the server."""
+        # to avoid sending the same set of actions twice in a row
+        prev_actions = None
         while self.game.player_data.alive:
             try:
                 pressed = pygame.key.get_pressed()
@@ -324,13 +316,14 @@ class PlayerInputHandler:
                     # if all the keys in the combo are pressed
                     if all([pressed[k] for k in key_combo])  
                 ]
-                if actions != self.prev_actions:
+                if actions != prev_actions:
                     await self.game.client.send_actions(actions)
-                    self.prev_actions = actions
+                    prev_actions = actions
                 await asyncio.sleep(constants.INPUT_CHECK_WAIT)
 
             except asyncio.CancelledError:
-                print("cancl")
+                # usually this happens because the main loop ends before the game does
+                break
 
 
 async def main(host, no_music):

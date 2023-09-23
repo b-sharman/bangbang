@@ -10,7 +10,6 @@ import websockets.server  # only for typing, is that bad?
 
 import bbutils
 import constants
-import server
 
 
 def get_local_ip():
@@ -34,7 +33,7 @@ class Client:
 
     def __init__(
         self,
-        s: server.Server,
+        s: "server.Server",
         ws: websockets.server.WebSocketServer,
         tg: asyncio.TaskGroup,
         client_id: int,
@@ -63,11 +62,17 @@ class Client:
         async for json_message in self.ws:
             # convert JSON string to dict
             message = json.loads(json_message)
-            await self.server.handle_message(message)
+            match message["type"]:
+                case constants.Msg.GREET:
+                    self.name = message["name"]
+                    print(f"{message['name']} has joined.")
+
+                case constants.Msg.REQUEST:
+                    self.server.handle_request(self.client_id, message["actions"])
 
 
 class ServerNetwork:
-    def __init__(self, s: server.Server) -> None:
+    def __init__(self, s: "server.Server") -> None:
         try:
             self.ip = get_local_ip()
         except RuntimeError as m:
@@ -77,7 +82,7 @@ class ServerNetwork:
         # has the game been started yet?
         self.game_running = False
 
-        self.clients: set[Client] = set()
+        self.clients: list[Client] = []
 
         self.server = s
 
@@ -118,7 +123,7 @@ class ServerNetwork:
             # add ws to the self.clients set and remove it upon disconnect
             client = Client(self.server, ws, tg, self.get_next_id())
             await client.initialize()
-            self.clients.add(client)
+            self.clients.append(client)
             logging.debug(f"added player with id {client.client_id}")
             try:
                 await client.ws.wait_closed()

@@ -30,6 +30,31 @@ INPUT_CHECK_WAIT = 0.005  # s
 UP = np.array((0, 1, 0), dtype=float)
 
 
+class Tank:
+    """Class that stores tank constants."""
+    # how fast the turret rotates after the player presses "t"
+    SNAP_SPEED = 60.0  # deg / s
+
+    BROTATE = 3
+    TROTATE = 2
+
+    # the range in which "s" stops the tank
+    SNAP_STOP = 0.13  # m/s
+
+    # Speeds
+    # 1 OGL unit = 1.74 meter
+    # real M1 Abrams acceleration: 2.22
+    ACC = 2.0  # m/s**2
+    # real M1 Abrams max speed: 35.0
+    MAX_SPEED = 10.0  # m/s
+    MIN_SPEED = -4.0  # m/s
+
+    RELOAD_TIME = 10  # s
+    # how many shell hits before dead?
+    # TODO: rename this since a single mine hit does two damage
+    HITS_TO_DIE = 5
+
+
 # raises ValueError if message types share a duplicate value
 @enum.unique
 class Msg(enum.IntEnum):

@@ -17,29 +17,7 @@ import server_network
 import utils_3d
 
 
-class Tank(base_shapes.Shape):
-    # how fast the turret rotates after the player presses "t"
-    SNAP_SPEED = 60.0  # deg / s
-
-    BROTATE = 3
-    TROTATE = 2
-
-    # the range in which "s" stops the tank
-    SNAP_STOP = 0.13  # m/s
-
-    # Speeds
-    # 1 OGL unit = 1.74 meter
-    # real M1 Abrams acceleration: 2.22
-    ACC = 2.0  # m/s**2
-    # real M1 Abrams max speed: 35.0
-    MAX_SPEED = 10.0  # m/s
-    MIN_SPEED = -4.0  # m/s
-
-    RELOAD_TIME = 10  # s
-    # how many shell hits before dead?
-    # TODO: rename this since a single mine hit does two damage
-    HITS_TO_DIE = 5
-
+class Tank(base_shapes.Shape, constants.Tank):
     def __init__(self, angle, color, ground_hw, name, pos):
         super().__init__()
 
@@ -94,7 +72,7 @@ class Tank(base_shapes.Shape):
         # TODO: ask some knowledgeable folks whether a match-case pattern would be more
         # appropriate here
         if constants.Action.ACCEL in self.actions:
-            self.speed = max(self.speed + self.ACC * delta, self.MAX_SPEED)
+            self.speed = min(self.speed + self.ACC * delta, self.MAX_SPEED)
 
         if constants.Action.ALL_LEFT in self.actions:
             # add BASE_LEFT and TURRET_LEFT to self.actions
@@ -301,19 +279,12 @@ class Server:
                 if shell.pos[i] > game.ground_hw or shell.pos[i] < -game.ground_hw:
                     shell.hill()
 
-    async def handle_message(self, message: dict) -> None:
-        """Handle a JSON-loaded dict network message."""
-        match message["type"]:
-            case constants.Msg.GREET:
-                # TODO: find some way to prevent name collision
-                #       (i.e., more than one player requesting the same name)
-                self.tanks[message["id"]].name = message["name"]
-                print(f"{message['name']} has joined.")
-
-            case constants.Msg.REQUEST:
-                # Isn't it expensive to make new sets? Perhaps a new datatype should
-                # be used for Tank.actions
-                self.tanks[message["id"]].actions = set(message["actions"])
+    def handle_request(self, client_id, actions) -> None:
+        """Handle a message of type constants.Msg.REQUEST."""
+        print(f"set {client_id} actions to {actions}")
+        # Isn't it expensive to make new sets? Perhaps a new datatype should
+        # be used for Tank.actions
+        self.tanks[client_id].actions = set(actions)
 
     async def listen_for_start(self) -> None:
         """Start the game upon receiving proper user input."""
@@ -323,7 +294,12 @@ class Server:
         while output != constants.SERVER_START_KEYWORD:
             output = await aioconsole.ainput()
             # how many players have not submitted their names yet?
-            nameless_count = [c.name is None for c in self.server.clients].count(True)
+            # I think this should be faster than list comp. in terms of number of
+            # iterations and memory required
+            nameless_count = 0
+            for c in self.server.clients:
+                # adds 1 to nameless count if the name is None
+                nameless_count += c.name is None
             if nameless_count > 0:
                 # cannot start until all players have submitted names
                 print(
@@ -364,6 +340,7 @@ class Server:
         while True:
             # TODO: maybe self.tanks should be list[tuple[int, Tank]] instead of dict[int, Tank]?
             for client_id, tank in self.tanks.items():
+                tank.update()
                 self.server.message_all(
                     {
                         "type": constants.Msg.APPROVE,
