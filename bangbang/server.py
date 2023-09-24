@@ -75,12 +75,16 @@ class Tank(base_shapes.Shape, constants.Tank):
             self.speed = min(self.speed + self.ACC * delta, self.MAX_SPEED)
 
         if constants.Action.ALL_LEFT in self.actions:
-            # add BASE_LEFT and TURRET_LEFT to self.actions
-            self.actions |= {constants.Action.BASE_LEFT, constants.Action.TURRET_LEFT}
+            self.turning_back = False
+            self.snapping_back = False
+            ip_bangle = self.BROTATE
+            ip_tangle = self.BROTATE
 
         if constants.Action.ALL_RIGHT in self.actions:
-            # add BASE_RIGHT and TURRET_RIGHT to self.actions
-            self.actions |= {constants.Action.BASE_RIGHT, constants.Action.TURRET_RIGHT}
+            self.turning_back = False
+            self.snapping_back = False
+            ip_bangle = -self.BROTATE
+            ip_tangle = -self.BROTATE
 
         if constants.Action.BASE_LEFT in self.actions:
             # cancel turning back upon manual turn
