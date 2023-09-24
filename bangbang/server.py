@@ -50,18 +50,23 @@ class Tank(base_shapes.Shape, constants.Tank):
         Perform calculations for the snapping and turning back animations.
 
         Returns the increment to be added to the approaching angle (which may be 0)
-        and a boolean indicating whether the animation has finished.
+        and a boolean indicating whether the animation is still going.
 
-        incr should be delta times either self.SNAP_SPEED or self.BROTATE.
+        incr should be delta * (self.SNAP_SPEED or self.BROTATE).
         """
         diff = approaching_angle - target_angle
-        # once within a certain threshold of the correct angle, stop snapping back
-        if abs(diff) <= incr:
-            return diff, True
+        # the sign of the increment
+        direction = (diff < 0) - (diff > 0)
+        diff = abs(diff)
+        # always choose the shortest path
+        if diff > 180.0:
+            diff = 360 - diff
+            direction *= -1
 
-        if approaching_angle < target_angle:
-            return incr, False
-        return -incr, False
+        # once within a certain threshold of the correct angle, stop snapping back
+        if diff <= incr:
+            return diff * direction, False
+        return incr * direction, True
 
     def update(self):
         delta = self.delta_time()
@@ -126,25 +131,28 @@ class Tank(base_shapes.Shape, constants.Tank):
         if constants.Action.STOP in self.actions and abs(self.speed) <= self.SNAP_STOP:
             self.speed = 0.0
 
+        # snap_logic returns the number of degrees to turn this frame; all the other
+        # logic specifies the rate of turning in degrees per second
+        if not self.snapping_back:
+            ip_tangle *= delta
+        if not self.turning_back:
+            ip_bangle *= delta
+
         # handle snapping/turning back
         if self.snapping_back and ip_tangle == 0.0:
-            ip_tangle, finished = self.snap_logic(
-                self.bangle, self.tangle, delta * self.SNAP_SPEED
+            ip_tangle, self.snapping_back = self.snap_logic(
+                self.bangle, self.tangle, self.SNAP_SPEED * delta
             )
-            if finished:
-                self.snapping_back = False
         if self.turning_back and ip_bangle == 0.0:
-            ip_bangle, finished = self.snap_logic(
-                self.tangle, self.bangle, delta * self.BROTATE
+            ip_bangle, self.turning_back = self.snap_logic(
+                self.tangle, self.bangle, self.BROTATE * delta
             )
-            if finished:
-                self.turning_back = False
 
         # adjust base and turret angles and out vectors if they've changed
         if ip_bangle:
-            self.bangle += ip_bangle * delta
+            self.bangle += ip_bangle
         if ip_tangle:
-            self.tangle += ip_tangle * delta
+            self.tangle += ip_tangle
 
         # make sure the angles don't get too high, this helps the turret animation
         self.bangle %= 360.0
