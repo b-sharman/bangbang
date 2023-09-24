@@ -316,9 +316,20 @@ class PlayerInputHandler:
                     # if all the keys in the combo are pressed
                     if all([pressed[k] for k in key_combo])  
                 ]
+                # corner case: if TURRET_x or BASE_x, then ALL_x cannot be true
+                if constants.Action.TURRET_LEFT in actions or constants.Action.BASE_LEFT in actions:
+                    actions.remove(constants.Action.ALL_LEFT)
+                if constants.Action.TURRET_RIGHT in actions or constants.Action.BASE_RIGHT in actions:
+                    actions.remove(constants.Action.ALL_RIGHT)
+                # corner case: cannot snap back in the presence of ctrl key
+                if constants.Action.TURN_BACK in actions:
+                    actions.remove(constants.Action.SNAP_BACK)
+
+                # only send the actions if they are different from last time
                 if actions != prev_actions:
                     await self.game.client.send_actions(actions)
                     prev_actions = actions
+
                 await asyncio.sleep(constants.INPUT_CHECK_WAIT)
 
             except asyncio.CancelledError:

@@ -33,13 +33,13 @@ UP = np.array((0, 1, 0), dtype=float)
 class Tank:
     """Class that stores tank constants."""
     # how fast the turret rotates after the player presses "t"
-    SNAP_SPEED = 60.0  # deg / s
+    SNAP_SPEED = 600  # deg / s
 
-    BROTATE = 3
-    TROTATE = 2
+    BROTATE = 45  # deg / s
+    TROTATE = 90  # deg / s
 
     # the range in which "s" stops the tank
-    SNAP_STOP = 0.13  # m/s
+    SNAP_STOP = 1.5  # m/s
 
     # Speeds
     # 1 OGL unit = 1.74 meter
