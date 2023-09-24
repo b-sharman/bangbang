@@ -171,24 +171,21 @@ class Tank(base_shapes.Shape, constants.Tank):
 
     # vector properties
 
+    # TODO: this is duplicated code from client.PlayerData - find a way to reuse it
     @property
     def bout(self):
         # don't know if this is correct - will need some trial and error
-        return utils_3d.yaw(self.bangle, np.array((1.0, 0.0, 0.0)), np.array((0.0, 0.0, 1.0)))
+        return utils_3d.yaw(self.bangle, np.array((0.0, 0.0, 1.0)), np.array((1.0, 0.0, 0.0)))
 
     @property
     def tout(self):
         # don't know if this is correct - will need some trial and error
-        return utils_3d.yaw(self.tangle, np.array((1.0, 0.0, 0.0)), np.array((0.0, 0.0, 1.0)))
-
-    @property
-    def bright(self):
-        return utils_3d.normalize(np.cross(constants.UP, self.bout))
+        return utils_3d.yaw(self.tangle, np.array((0.0, 0.0, 1.0)), np.array((1.0, 0.0, 0.0)))
 
     # TODO: if these vectors are actually left instead of right, rename them
     @property
-    def tright(self):
-        return utils_3d.normalize(np.cross(constants.UP, self.tout))
+    def bright(self):
+        return utils_3d.normalize(np.cross(constants.UP, self.bout))
 
 
 class Server:

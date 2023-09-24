@@ -40,12 +40,12 @@ class PlayerData:
     @property
     def bout(self):
         # don't know if this is correct - will need some trial and error
-        return utils_3d.yaw(self.bangle, np.array((1.0, 0.0, 0.0)), np.array((0.0, 0.0, 1.0)))
+        return utils_3d.yaw(self.bangle, np.array((0.0, 0.0, 1.0)), np.array((1.0, 0.0, 0.0)))
 
     @property
     def tout(self):
         # don't know if this is correct - will need some trial and error
-        return utils_3d.yaw(self.tangle, np.array((1.0, 0.0, 0.0)), np.array((0.0, 0.0, 1.0)))
+        return utils_3d.yaw(self.tangle, np.array((0.0, 0.0, 1.0)), np.array((1.0, 0.0, 0.0)))
 
 
 class Client:
