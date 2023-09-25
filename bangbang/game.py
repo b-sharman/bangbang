@@ -173,7 +173,7 @@ class Game:
         glClearColor(0.25, 0.89, 0.92, 1.0)
 
         ground = shapes.Ground(self.ground_hw)
-        lifebar = shapes.LifeBar(self.players[self.player_id], SCR)
+        self.lifebar = shapes.LifeBar(self.players[self.player_id], SCR)
         # reloading is the time at which the player can fire again
         # it must be defined here since ReloadingBar accesses it
         self.reloading = time.time()
@@ -186,7 +186,7 @@ class Game:
         self.groups.mines = []
 
         # Make all_shapes
-        self.groups.all_shapes = [ground, lifebar, self.reloadingbar] + self.groups.hills + self.groups.trees + self.groups.tanks + self.groups.shells + self.groups.mines
+        self.groups.all_shapes = [ground, self.reloadingbar] + self.groups.hills + self.groups.trees + self.groups.tanks + self.groups.shells + self.groups.mines
 
         # start listening for keyboard input
         # self.tg is defined in initialize
@@ -242,6 +242,9 @@ class Game:
 
             for shape in self.groups.all_shapes:
                 shape.update()
+            # overlays must be updated last to render correctly
+            self.lifebar.update()
+            self.reloadingbar.update()
 
             # make bullet on space
             # TODO: move this to the server
