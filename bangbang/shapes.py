@@ -140,7 +140,7 @@ class LifeBar:
         glEnable(GL_TEXTURE_2D)
         self.texture = glGenTextures(1)
         glBindTexture(GL_TEXTURE_2D, self.texture)
-        self.current_image = LifeBar.IMGS[self.player_data.hits_left]
+        self.current_image = LifeBar.IMGS[-self.player_data.hits_left - 1]
         glTexImage2D(
             GL_TEXTURE_2D,
             0,
