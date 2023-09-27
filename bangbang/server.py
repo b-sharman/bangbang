@@ -38,7 +38,8 @@ class Tank(base_shapes.Shape, constants.Tank):
         self.turning_back = False
 
         self.hits_left: int = self.HITS_TO_DIE  # how many more hits before dead?
-        self.reloading = 0  # timestamp at which tank can fire again
+        self.mine_reloading = 0  # timestamp at which tank can lay a mine again
+        self.shell_reloading = 0  # timestamp at which tank can fire a shell again
         self.speed = 0.0  # m / s, I hope
 
         self.actions: set[constants.Action] = set()
@@ -109,8 +110,15 @@ class Tank(base_shapes.Shape, constants.Tank):
             self.speed = max(self.speed - self.ACC * delta, self.MIN_SPEED)
 
         if constants.Action.MINE in self.actions:
-            # TODO: implement mine spawning
-            pass
+            if self.clock >= self.mine_reloading + constants.Mine.RELOAD_TIME:
+                self.mine_reloading = self.clock
+                self.server.message_all(
+                    {
+                        "type": constants.Msg.MINE,
+                        "id": self.client_id,
+                        "pos": tuple(self.pos),
+                    }
+                )
 
         if constants.Action.TURN_BACK in self.actions:
             self.turning_back = True
@@ -126,8 +134,8 @@ class Tank(base_shapes.Shape, constants.Tank):
             ip_tangle = -self.TROTATE
 
         if constants.Action.SHELL in self.actions:
-            if self.clock >= self.reloading + constants.Shell.RELOAD_TIME:
-                self.reloading = self.clock
+            if self.clock >= self.shell_reloading + constants.Shell.RELOAD_TIME:
+                self.shell_reloading = self.clock
                 self.server.message_all(
                     {
                         "type": constants.Msg.SHELL,

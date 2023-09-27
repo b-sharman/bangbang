@@ -18,27 +18,29 @@ pygame.mixer.init()
 class Explosion(Shape, constants.Explosion):
     def __init__(self, pos, color):
         super().__init__()
-        self.pos = pos.copy()
-        self.frame_index = 0
+        self.pos = tuple(pos)
         self.color = color
 
-    def _draw(self):
+        self.frame_index = 0
+        self.prev_frame_time = self.clock
+
+    def _draw_explosion_gllist(self, gllists):
         glPushMatrix()
         glColor(*self.color)
         glTranslate(*self.pos)
-        glCallList(Explosion.base_gllists[self.frame_index])
+        glCallList(gllists[self.frame_index])
         glPopMatrix()
 
-        glPushMatrix()
-        glColor(*self.color)
-        glTranslate(*self.pos)
-        glCallList(Explosion.turret_gllists[self.frame_index])
-        glPopMatrix()
+    def _draw(self):
+        self._draw_explosion_gllist(Explosion.base_gllists)
+        self._draw_explosion_gllist(Explosion.turret_gllists)
 
     def update(self):
         # don't play animation too fast
-        if self.delta_time() < 1 / self.TARGET_FPS:
-            pass
+        clock = time.time()
+        if clock - self.prev_frame_time < self.SECONDS_PER_FRAME:
+            return
+        self.prev_frame_time = clock
 
         self._draw()
 
@@ -202,30 +204,25 @@ class Mine(Shape, constants.Mine):
     BEEP_SOUND = pygame.mixer.Sound("../data/sound/mine.wav")
     EXPLODE_SOUND = pygame.mixer.Sound("../data/sound/mine_explode.wav")
 
-    def __init__(self, name, pos, color, in_id=None):
+    def __init__(self, game, client_id, pos, color):
         super().__init__()
-        self.last_beep_time = self.clock
-        self.spawn_time = self.clock
 
-        if self.gllist == "Unknown":
-            self.gllist = glGenLists(1)
-            glNewList(self.gllist, GL_COMPILE)
+        if Mine.gllist == "Unknown":
+            Mine.gllist = glGenLists(1)
+            glNewList(Mine.gllist, GL_COMPILE)
             utils_3d.exec_raw("../data/models/mine.raw")
             glEndList()
 
-        self.name = name
-        self.pos = np.array(pos)
-        self.color = color
+        self.spawn_time = time.time()
+        self.last_beep_time = self.spawn_time
 
-        if not in_id:
-            in_id = id(self)
-        self.id = in_id
+        self.client_id = client_id
+        self.game = game
+        self.color = color
+        self.pos = pos
 
     def update(self):
-        global allshapes
-
-        # calling this instead of delta_time allows saving a subtraction operation
-        self.clock = time.time()
+        clock = time.time()
 
         glPushMatrix()
         glColor(*self.color)
@@ -233,33 +230,25 @@ class Mine(Shape, constants.Mine):
         glCallList(Mine.gllist)
         glPopMatrix()
 
-        if self.clock - self.spawn_time >= self.LIFETIME:
+        if clock - self.spawn_time >= Mine.LIFETIME:
             self.die()
-
-            # make a mine explosion
-            allshapes.append(MineExplosion(self.pos, self.color))
-            return  # so the beep sound can't play
+            self.game.make_mine_explosion(self.pos, self.color)
+            # so the beep sound can't play
+            return
 
         # make a beep sound periodically
-        if self.clock - self.last_beep_time >= self.BEEP_INTERVAL:
+        if clock - self.last_beep_time >= Mine.BEEP_INTERVAL:
             Mine.BEEP_SOUND.play()
-            self.last_beep_time = self.clock
+            self.last_beep_time = clock
 
     def die(self):
         super().die()
         Mine.EXPLODE_SOUND.play()
 
 
-class MineExplosion(Explosion, constants.MineExplosion):
-    def __init__(self, pos, color):
-        super().__init__(self, pos, color)
-
-    def update(self):
-        glPushMatrix()
-        glColor(*self.color)
-        glTranslate(*self.pos)
-        glCallList(MineExplosion.gllists[self.frame_index])
-        glPopMatrix()
+class MineExplosion(constants.MineExplosion, Explosion):
+    def _draw(self):
+        self._draw_explosion_gllist(MineExplosion.gllists)
 
 
 class ReloadingBar(constants.ReloadingBar):

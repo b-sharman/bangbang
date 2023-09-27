@@ -62,6 +62,12 @@ def is_message_valid(message: Message) -> None:
         case constants.Msg.GREET if "name" not in message:
             raise ValueError("GREET message does not have name")
 
+        # MINE must have id, pos
+        case constants.Msg.MINE:
+            for must_have in ("id", "pos"):
+                if must_have not in message:
+                    raise ValueError(f"MINE message does not have {must_have}")
+
         # REQUEST must have actions
         case constants.Msg.REQUEST if "actions" not in message:
             raise ValueError("REQUEST message does not have actions")
