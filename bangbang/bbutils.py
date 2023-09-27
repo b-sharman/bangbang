@@ -48,13 +48,11 @@ def is_message_valid(message: Message) -> None:
 
     # type-specific requirements
     match message["type"]:
+        # APPROVE must have id, state
         case constants.Msg.APPROVE:
-            # APPROVE must have id
-            if "id" not in message:
-                raise ValueError("APPROVE message does not have id")
-            # APPROVE must have state
-            if "state" not in message:
-                raise ValueError("APPROVE message does not have state")
+            for must_have in ("id", "state"):
+                if must_have not in message:
+                    raise ValueError(f"APPROVE message does not have {must_have}")
 
         # ID must have id
         case constants.Msg.ID if "id" not in message:
