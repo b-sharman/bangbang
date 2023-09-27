@@ -102,9 +102,18 @@ class Game:
             case constants.Msg.ID:
                 self.player_id = message["id"]
 
+            case constants.Msg.MINE:
+                self.groups.all_shapes.append(
+                    shapes.Mine(
+                        self,
+                        message["id"],
+                        message["pos"],
+                        self.players[message["id"]].color
+                    )
+                )
+
             case constants.Msg.SHELL:
                 shell = shapes.Shell(message["angle"], message["id"], message["out"], message["pos"])
-                self.groups.shells.append(shell)
                 self.groups.all_shapes.append(shell)
                 self.reloadingbar.fire()
 
@@ -185,10 +194,8 @@ class Game:
         self.groups.hills = [shapes.Hill(pos) for pos in self.hill_poses]
         self.groups.trees = [shapes.Tree(pos) for pos in self.tree_poses]
         self.groups.tanks = [shapes.Tank(self, client_id) for client_id in self.players]
-        self.groups.shells = []
-        self.groups.mines = []
 
-        self.groups.all_shapes = [ground] + self.groups.hills + self.groups.trees + self.groups.tanks + self.groups.shells + self.groups.mines
+        self.groups.all_shapes = [ground] + self.groups.hills + self.groups.trees + self.groups.tanks
 
         # start listening for keyboard input
         # self.tg is defined in initialize
@@ -198,6 +205,9 @@ class Game:
         # TODO: implement a reloading timer for dropping mines
         # It should probably not be implemented here in the main loop, but that's where
         # this comment is because it used to be implemented here
+
+    def make_mine_explosion(self, pos, color):
+        self.groups.all_shapes.append(shapes.MineExplosion(pos, color))
 
     async def start_main_loop(self):
         # timestamp of the final frame
@@ -248,23 +258,10 @@ class Game:
             self.lifebar.update()
             self.reloadingbar.update()
 
-            # TODO: add networking to this
-            if pygame.key.get_pressed()[pygame.K_b] and self.player_data.alive and end_time is None:
-                pass
-                # mine = Mine(player.name, player.pos, player.color)
-                # mines.append(mine)
-                # all_shapes.append(mine)
-                # mine_reload = Mine.RELOAD
-
-                # if (not won) and (not hasattr(self, "spectator")):
-                #     self.spectator = Spectator(
-                #         player.pos, player.tout, constants.UP, player.tright, player.tangle
-                #     )
-                #     self.groups.all_shapes.append(self.spectator)
-                # # TODO: simplify this confusing endgame logic
-                # if (len(tanks) == 1) or won:
-                #     end_time = frame_start_time + 3
-                #     pygame.mixer.music.fadeout(3000)
+            # I think this is a little slower than list.remove() because a whole new
+            # linked list has to be built; however, it seems more Pythonic than
+            # looping through and calling remove()
+            self.groups.all_shapes = [shape for shape in self.groups.all_shapes if shape.alive]
 
             pygame.display.flip()
 

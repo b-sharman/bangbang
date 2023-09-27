@@ -32,7 +32,7 @@ UP = np.array((0, 1, 0), dtype=float)
 
 class Explosion:
     NO_FRAMES = 150
-    TARGET_FPS = 50
+    SECONDS_PER_FRAME = 0.02  # S
 
 
 class Ground:
@@ -137,8 +137,9 @@ class Msg(enum.IntEnum):
     APPROVE = enum.auto()  # server broadcasts approval to a REQUEST
     GREET = enum.auto()    # client informs server of name, maybe color, etc.
     ID = enum.auto()       # server informs client of assigned id
+    MINE = enum.auto()     # special APPROVE for mine firing
     REQUEST = enum.auto()  # client requests server to move, shoot, etc.
-    SHELL = enum.auto()    # game starts
+    SHELL = enum.auto()    # special APPROVE for shell firing
     START = enum.auto()    # game starts
 
 
