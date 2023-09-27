@@ -102,6 +102,12 @@ class Game:
             case constants.Msg.ID:
                 self.player_id = message["id"]
 
+            case constants.Msg.SHELL:
+                shell = shapes.Shell(message["angle"], message["id"], message["out"], message["pos"])
+                self.groups.shells.append(shell)
+                self.groups.all_shapes.append(shell)
+                self.reloadingbar.fire()
+
             case constants.Msg.START:
                 logging.debug("starting")
                 for client_id, state in message["states"]:
@@ -174,10 +180,7 @@ class Game:
 
         ground = shapes.Ground(self.ground_hw)
         self.lifebar = shapes.LifeBar(self.players[self.player_id], SCR)
-        # reloading is the time at which the player can fire again
-        # it must be defined here since ReloadingBar accesses it
-        self.reloading = time.time()
-        self.reloadingbar = shapes.ReloadingBar(SCR[0], self)
+        self.reloadingbar = shapes.ReloadingBar(SCR[0])
 
         self.groups.hills = [shapes.Hill(pos) for pos in self.hill_poses]
         self.groups.trees = [shapes.Tree(pos) for pos in self.tree_poses]
@@ -185,8 +188,7 @@ class Game:
         self.groups.shells = []
         self.groups.mines = []
 
-        # Make all_shapes
-        self.groups.all_shapes = [ground, self.reloadingbar] + self.groups.hills + self.groups.trees + self.groups.tanks + self.groups.shells + self.groups.mines
+        self.groups.all_shapes = [ground] + self.groups.hills + self.groups.trees + self.groups.tanks + self.groups.shells + self.groups.mines
 
         # start listening for keyboard input
         # self.tg is defined in initialize
@@ -245,29 +247,6 @@ class Game:
             # overlays must be updated last to render correctly
             self.lifebar.update()
             self.reloadingbar.update()
-
-            # make bullet on space
-            # TODO: move this to the server
-            if (
-                pygame.key.get_pressed()[pygame.K_SPACE]
-                and self.reloading < time.time()
-                and self.player_data.alive
-                and end_time is None
-            ):
-                # TODO: Wouldn't it be cleaner to move this code either to
-                # Shell.__init__ or a Shell factory function?
-                temp_tout = np.array(self.player_data.tout) + (np.array(self.player_data.bout) * self.player_data.speed) / Shell.SPEED
-                temp_pos = np.array(self.player_data.pos) + Shell.START_DISTANCE * np.array(
-                    self.player_data.tout
-                )
-                shell = Shell(temp_pos, temp_tout, self.player_data.tangle, "Gandalf")
-                self.groups.shells.append(shell)
-                self.groups.all_shapes.append(shell)
-
-                # set reloading bar to full
-                self.reloadingbar.fire()
-
-                self.reloading = time.time() + constants.Tank.RELOAD_TIME
 
             # TODO: add networking to this
             if pygame.key.get_pressed()[pygame.K_b] and self.player_data.alive and end_time is None:

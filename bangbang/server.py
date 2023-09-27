@@ -4,6 +4,7 @@ import asyncio
 import math
 import logging
 import random
+import time
 from typing import Any
 
 import aioconsole
@@ -18,11 +19,12 @@ import utils_3d
 
 
 class Tank(base_shapes.Shape, constants.Tank):
-    def __init__(self, angle, color, ground_hw, name, pos):
+    def __init__(self, angle, client_id, color, ground_hw, name, pos, server):
         super().__init__()
 
         self.bangle = angle  # base angle
         self.tangle = angle  # turret angle
+        self.client_id = client_id
         self.color = color
         self.ground_hw = ground_hw
         self.name = name
@@ -36,10 +38,12 @@ class Tank(base_shapes.Shape, constants.Tank):
         self.turning_back = False
 
         self.hits_left: int = self.HITS_TO_DIE  # how many more hits before dead?
-
+        self.reloading = 0  # timestamp at which tank can fire again
         self.speed = 0.0  # m / s, I hope
 
         self.actions: set[constants.Action] = set()
+
+        self.server = server
 
     def recv_hit(self, damage):
         """Decrement the tank health by damage."""
@@ -121,9 +125,18 @@ class Tank(base_shapes.Shape, constants.Tank):
             self.snapping_back = False
             ip_tangle = -self.TROTATE
 
-        if constants.Action.SHOOT in self.actions:
-            # TODO: implement shell spawning
-            pass
+        if constants.Action.SHELL in self.actions:
+            if self.clock >= self.reloading + constants.Shell.RELOAD_TIME:
+                self.reloading = self.clock
+                self.server.message_all(
+                    {
+                        "type": constants.Msg.SHELL,
+                        "id": self.client_id,
+                        "angle": self.tangle,
+                        "out": tuple(self.tout + (self.bout * self.speed / constants.Shell.SPEED)),
+                        "pos": tuple(self.pos + constants.Shell.START_DISTANCE * self.tout),
+                    }
+                )
 
         if constants.Action.SNAP_BACK in self.actions:
             self.snapping_back = True
@@ -322,7 +335,13 @@ class Server:
         self.tanks: dict[int, Tank] = {}
         for client_id, state in states:
             self.tanks[client_id] = Tank(
-                state["angle"], state["color"], ground_hw, state["name"], state["pos"]
+                state["angle"],
+                client_id,
+                state["color"],
+                ground_hw,
+                state["name"],
+                state["pos"],
+                self.server,
             )
 
         # inform the network server that the game has started
