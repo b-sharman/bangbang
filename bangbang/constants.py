@@ -30,8 +30,83 @@ INPUT_CHECK_WAIT = 0.005  # s
 UP = np.array((0, 1, 0), dtype=float)
 
 
+class Explosion:
+    NO_FRAMES = 150
+    TARGET_FPS = 50
+
+
+class Ground:
+    COLOR = (0.1, 0.3, 0.0)
+    POS = (0, 0, 0)
+
+
+class Hill:
+    COLOR = (0.1, 0.3, 0.0)
+
+
+class LifeBar:
+    MARGIN = 50
+    UNIT = 200
+
+class Mine:
+    # time interval between beep noises
+    BEEP_INTERVAL = 1  # s
+    LIFETIME = 6  # s
+    RELOAD_TIME = 2  # s
+
+    DAMAGE = 2
+
+
+class MineExplosion:
+    NO_FRAMES = 50
+
+
+class ReloadingBar:
+    HEIGHT = 10.0  # px
+    COLOR = (0.3, 0.05, 0.0)
+
+
+class Shell:
+    # how many hits does this weapon deal to a Tank upon contact?
+    DAMAGE = 1
+    RELOAD_TIME = 10  # s
+    HILL_TIME = 3  # s
+    SPEED = 100.0  # m/s
+
+    COLOR = (0.7, 0.7, 0.7)
+    EXPLO_COLOR = (1.0, 0.635, 0.102)
+
+    START_DISTANCE = 10.2  # m
+    START_HEIGHT = 4.1  # m
+
+
+class Spectator:
+    HEIGHT = 20.0  # m
+
+    SPEED = 10.0  # m/s
+    FAST_SPEED = 30.0  # m/s
+    # speed of rising animation after death
+    RISE_SPEED = 0.2  # m/s
+    # how fast to turn when left or right arrow keys are pressed
+    ROTATE_SPEED = 2  # deg / s
+
+
+class Tree:
+    ACC = 30.0  # degrees/s**2
+    HIT_HEIGHT = 3.0  # where the tank hits the tree
+
+
+class VictoryBanner:
+    # final scale factor at the end of the animation
+    FINAL_SCALE = 1.0
+    # length of the zoom animation
+    ZOOM_DURATION = 0.3  # s
+    # scale of the banner at the beginning of the animation
+    ZOOM_SCALE = 20.0  # at the beginning
+    DIFF_SCALE = FINAL_SCALE - ZOOM_SCALE
+
+
 class Tank:
-    """Class that stores tank constants."""
     # how fast the turret rotates after the player presses "t"
     SNAP_SPEED = 600  # deg / s
 
@@ -49,7 +124,6 @@ class Tank:
     MAX_SPEED = 10.0  # m/s
     MIN_SPEED = -4.0  # m/s
 
-    RELOAD_TIME = 10  # s
     # how many shell hits before dead?
     # TODO: rename this since a single mine hit does two damage
     HITS_TO_DIE = 5
@@ -64,6 +138,7 @@ class Msg(enum.IntEnum):
     GREET = enum.auto()    # client informs server of name, maybe color, etc.
     ID = enum.auto()       # server informs client of assigned id
     REQUEST = enum.auto()  # client requests server to move, shoot, etc.
+    SHELL = enum.auto()    # game starts
     START = enum.auto()    # game starts
 
 
@@ -81,7 +156,7 @@ class Action(enum.IntEnum):
     TURN_BACK = enum.auto()
     TURRET_LEFT = enum.auto()
     TURRET_RIGHT = enum.auto()
-    SHOOT = enum.auto()
+    SHELL = enum.auto()
     SNAP_BACK = enum.auto()
     STOP = enum.auto()
 
@@ -102,7 +177,7 @@ KEYMAP: tuple[tuple[[tuple[int], Action]]] = (
     ((K_RSHIFT, K_LEFT), Action.TURRET_LEFT),
     ((K_LSHIFT, K_RIGHT), Action.TURRET_RIGHT),
     ((K_RSHIFT, K_RIGHT), Action.TURRET_RIGHT),
-    ((K_SPACE,), Action.SHOOT),
+    ((K_SPACE,), Action.SHELL),
     ((K_t,), Action.SNAP_BACK),
     ((K_s,), Action.STOP),
 )

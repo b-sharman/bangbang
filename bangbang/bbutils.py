@@ -66,6 +66,12 @@ def is_message_valid(message: Message) -> None:
         case constants.Msg.REQUEST if "actions" not in message:
             raise ValueError("REQUEST message does not have actions")
 
+        # SHELL must have angle, id, pos
+        case constants.Msg.SHELL:
+            for must_have in ("angle", "id", "pos"):
+                if must_have not in message:
+                    raise ValueError(f"SHELL message does not have {must_have}")
+
         # START must have ...
         case constants.Msg.START:
             for must_have in ("ground_hw", "hill_poses", "tree_poses", "states"):

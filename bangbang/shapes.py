@@ -15,10 +15,7 @@ import utils_3d
 pygame.mixer.init()
 
 
-class Explosion(Shape):
-    NO_FRAMES = 150
-    TARGET_FPS = 50
-
+class Explosion(Shape, constants.Explosion):
     def __init__(self, pos, color):
         super().__init__()
         self.pos = pos.copy()
@@ -50,11 +47,8 @@ class Explosion(Shape):
             self.die()
 
 
-class Ground(Shape):
+class Ground(Shape, constants.Ground):
     """A plane that serves as the ground."""
-
-    COLOR = (0.1, 0.3, 0.0)
-    POS = (0, 0, 0)
 
     def __init__(self, ground_hw):
         super().__init__()
@@ -85,10 +79,7 @@ class Ground(Shape):
         glPopMatrix()
 
 
-class Hill(Shape):
-
-    COLOR = (0.1, 0.3, 0.0)
-
+class Hill(Shape, constants.Hill):
     def __init__(self, pos):
         super().__init__()
         if Hill.gllist == "Unknown":
@@ -107,7 +98,7 @@ class Hill(Shape):
         glPopMatrix()
 
 
-class LifeBar:
+class LifeBar(constants.LifeBar):
     """Overlay to show how much armor you have left."""
 
     IMGS = [
@@ -118,8 +109,6 @@ class LifeBar:
         pygame.image.load("../data/images/AAGH1.png"),
         pygame.image.load("../data/images/blank.png"),
     ]
-    MARGIN = 50
-    UNIT = 200
 
     def __init__(self, player_data: PlayerData, screen: tuple[int]):
         self.player_data = player_data
@@ -209,15 +198,7 @@ class LifeBar:
         glPopMatrix()
 
 
-class Mine(Shape):
-    # time interval between beep noises
-    BEEP_INTERVAL = 1  # s
-    LIFETIME = 6  # s
-    # TODO: move this constant to Tank
-    RELOAD = 2  # s
-
-    DAMAGE = 2
-
+class Mine(Shape, constants.Mine):
     BEEP_SOUND = pygame.mixer.Sound("../data/sound/mine.wav")
     EXPLODE_SOUND = pygame.mixer.Sound("../data/sound/mine_explode.wav")
 
@@ -269,9 +250,7 @@ class Mine(Shape):
         Mine.EXPLODE_SOUND.play()
 
 
-class MineExplosion(Explosion):
-    NO_FRAMES = 50
-
+class MineExplosion(Explosion, constants.MineExplosion):
     def __init__(self, pos, color):
         super().__init__(self, pos, color)
 
@@ -283,73 +262,41 @@ class MineExplosion(Explosion):
         glPopMatrix()
 
 
-# NOTE TO SELF: if this isn't appearing, make sure it is the last shape drawn
-class ReloadingBar:
-    RISE_DURATION = 0.35  # s
-    HEIGHT = 10.0  # px
-    COLOR = [0.3, 0.05, 0.0]
-
-    def __init__(self, screen_width: int, game):
-        self.width = 0
-        self.height = 0
+class ReloadingBar(constants.ReloadingBar):
+    def __init__(self, screen_width: int):
         self.screen_width = screen_width
-        # for a pointer to reloading
-        self.game = game
+        self.spawn_time = 0
 
     def fire(self):
         """Call right after the player fires."""
-
-        self.width = self.screen_width
-        self.height = 0
         self.spawn_time = time.time()
 
     def update(self):
         """Draw the reloading bar"""
-        current_time = time.time()
+        clock = time.time()
 
         # if the player is not currently reloading, do not draw anything
-        if current_time > self.game.reloading:
+        if clock > self.spawn_time + constants.Shell.RELOAD_TIME:
             return
 
-        # slide-up animation
-        if (
-            self.width > 0.0
-            and self.height < self.HEIGHT
-            and self.width > self.HEIGHT
-        ):
-            self.height = self.HEIGHT * (
-                (time.time() - self.spawn_time) / self.RISE_DURATION
-            )
+        width = self.screen_width * (1 - ((clock - self.spawn_time) / constants.Shell.RELOAD_TIME))
 
-        # slide-down animation
-        if self.width <= self.HEIGHT and self.width > 0.0:
-            self.height = self.HEIGHT * (
-                1 - ((time.time() - self.spawn_time) / self.RISE_DURATION)
-            )
-
-        if self.game.reloading > 0.0:
-            self.width = self.screen_width * (
-                (self.game.reloading - current_time) / Tank.RELOAD_TIME
-            )
-
-        # TODO: remove the int(round())s and see if anything breaks
-        pts = np.array(
-            [
-                (0.0, int(round(self.height)), 0.0),
-                (self.width, int(round(self.height)), 0.0),
-                (self.width, 0, 0.0),
-                (0.0, 0, 0.0),
-                (0.0, int(round(self.height)), 0.0),
-            ]
+        pts = (
+            (0.0, ReloadingBar.HEIGHT, 0.0),
+            (width, ReloadingBar.HEIGHT, 0.0),
+            (width, 0.0, 0.0),
+            (0.0, 0.0, 0.0),
+            (0.0, ReloadingBar.HEIGHT, 0.0),
         )
 
         glPushMatrix()
         glLoadIdentity()
+        # must call this after glLoadIdentity in order to get the right modelview matrix
+        pts = utils_3d.window2view(pts)
         glDisable(GL_LIGHTING)
-        glColor(*self.COLOR)
+        glColor(*ReloadingBar.COLOR)
 
         glBegin(GL_POLYGON)
-        pts = utils_3d.window2view(pts)
         for point in pts:
             glVertex(point)
         glEnd()
@@ -358,24 +305,13 @@ class ReloadingBar:
         glPopMatrix()
 
 
-class Shell(Shape):
-    # how many hits does this weapon deal to a Tank upon contact?
-    DAMAGE = 1
-
-    SPEED = 100.0  # m/s
-
-    START_DISTANCE = 10.2  # m, I guess?
-    HILL_TIME = 3  # s
-
+class Shell(Shape, constants.Shell):
     # the shell "explosion" is the still image shown when a shell hits a hill
     explosion_gllist = "Unknown"
 
-    COLOR = (0.7, 0.7, 0.7)
-    EXPLO_COLOR = (1.0, 0.635, 0.102)
-
     SOUND = pygame.mixer.Sound("../data/sound/shell.wav")
 
-    def __init__(self, pos, out, angle, name, in_id=None):
+    def __init__(self, angle: float, client_id: int, out: tuple[float], pos: tuple[float]):
         super().__init__()
 
         # self._clock is initialized in Shape.__init__
@@ -392,22 +328,17 @@ class Shell(Shape):
             utils_3d.exec_raw("../data/models/explosions/shell_explosion.raw")
             glEndList()
 
-        Shell.SOUND.play()
+        self.SOUND.play()
 
+        # who shot the shell
+        self.client_id = client_id
+
+        self.angle = angle
         self.pos = np.array(pos)
         # raise the shell to make it appear like it's exiting the turret
         # TODO: make a constant for this magic number
-        self.pos[1] += 4.1
+        self.pos[1] += self.START_HEIGHT
         self.out = np.array(out)
-        self.angle = angle
-
-        # special id, (hopefully) unique to each shell
-        if not in_id:
-            in_id = id(self)
-        self.id = in_id
-
-        # who shot the shell
-        self.name = name
 
         # None until the shell hits a hill; time.time() thereafter
         self.hill_time = None
@@ -417,43 +348,37 @@ class Shell(Shape):
 
         # self.clock is inherited from Shape, and after calling delta_time, will
         # have a value equivalent to time.time()
-        if (
-            self.hill_time is not None
-            and self.clock - self.hill_time >= Shell.HILL_TIME
-        ):
+        if self.collided and self.clock - self.hill_time >= Shell.HILL_TIME:
             self.die()
             return
 
+        if not self.collided:
+            self.pos += self.out * Shell.SPEED * delta
+
         glPushMatrix()
-        if not self.hit_hill:
-            glColor(*Shell.COLOR)
-        else:
-            glColor(*Shell.EXPLO_COLOR)
         glTranslate(*self.pos)
         # TODO: modify the Shell model in Blender so this rotate isn't necessary
-        glRotate(self.angle, 0.0, 1.0, 0.0)
-        if self.hit_hill:
+        glRotate(self.angle, *constants.UP)
+
+        if self.collided:
+            glColor(*Shell.EXPLO_COLOR)
             glCallList(Shell.explosion_gllist)
         else:
+            glColor(*Shell.COLOR)
             glCallList(Shell.gllist)
+
         glPopMatrix()
 
     def hill(self):
         self.hill_time = time.time()
 
+    @property
+    def collided(self):
+        return self.hill_time is not None
+
 
 # TODO: make an abstract class containing shared code from Tank, Player, and Spectator
-class Spectator(Shape):
-    HEIGHT = 20.0  # m
-    SPEED = 10.0  # m/s
-    FAST_SPEED = 30.0  # m/s
-
-    # speed of rising animation after death
-    RISE_SPEED = 0.2  # m/s
-
-    # how fast to turn when left or right arrow keys are pressed
-    ROTATE_SPEED = 2  # deg / s
-
+class Spectator(Shape, constants.Spectator):
     def __init__(self, pos, out, right, angle):
         super().__init__()
 
@@ -536,10 +461,9 @@ class Tank(Shape):
         return self.game.players[self.client_id]
 
 
-class Tree(Shape):
-    ACC = 30.0  # degrees/s**2
+class Tree(Shape, constants.Tree):
+    gllist = "Unknown"
     FALL_SOUND = pygame.mixer.Sound("../data/sound/tree.wav")
-    hit_height = 3.0  # where the tank hits the tree
 
     def __init__(self, pos):
         super().__init__()
@@ -582,16 +506,8 @@ class Tree(Shape):
         self.speed = speed / Tree.HIT_HEIGHT
 
 
-class VictoryBanner:
+class VictoryBanner(constants.VictoryBanner):
     """A cute little victory banner when you win."""
-
-    # length of the zoom animation
-    ZOOM_DURATION = 0.3  # s
-    # scale of the banner at the beginning of the animation
-    ZOOM_SCALE = 20.0  # at the beginning
-    # final scale factor at the end of the animation
-    FINAL_SCALE = 1.0
-    DIFF_SCALE = FINAL_SCALE - ZOOM_SCALE
 
     def __init__(self, screen):
         # generate texture
@@ -674,4 +590,4 @@ def setup_explosion():
         Explosion.base_gllists,
         Explosion.turret_gllists,
         MineExplosion.gllists,
-    ) = utils_3d.setup_explosion(Explosion.NO_FRAMES, MineExplosion.NO_FRAMES)
+    ) = utils_3d.setup_explosion(constants.Explosion.NO_FRAMES, constants.MineExplosion.NO_FRAMES)

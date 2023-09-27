@@ -155,13 +155,17 @@ def setup_explosion(no_explosion_frames, no_mine_frames) -> tuple[list["gllist"]
 
 def window2view(pts: list[tuple[float]]) -> list[tuple[float]]:
     """Convert window coordinates to 3D coordinates."""
-    model = glGetDoublev(GL_MODELVIEW_MATRIX)
-    projection = glGetDoublev(GL_PROJECTION_MATRIX)
-    viewport = glGetIntegerv(GL_VIEWPORT)
-
+    # TODO: remove the magic constant
     return [
-        # TODO: remove the magic constant
-        gluUnProject(pt[0], pt[1], 0.001, model, projection, viewport) for pt in pts
+        gluUnProject(
+            pt[0],
+            pt[1],
+            0.001,
+            glGetDoublev(GL_MODELVIEW_MATRIX),
+            glGetDoublev(GL_PROJECTION_MATRIX),
+            glGetIntegerv(GL_VIEWPORT)
+        )
+        for pt in pts
     ]
 
 
