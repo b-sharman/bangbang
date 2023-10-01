@@ -311,7 +311,6 @@ class Server:
 
     def handle_request(self, client_id, actions) -> None:
         """Handle a message of type constants.Msg.REQUEST."""
-        print(f"set {client_id} actions to {actions}")
         # Isn't it expensive to make new sets? Perhaps a new datatype should
         # be used for Tank.actions
         self.tanks[client_id].actions = set(actions)
