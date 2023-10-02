@@ -77,8 +77,7 @@ class ReloadingBar:
 class Shell:
     # how many hits does this weapon deal to a Tank upon contact?
     DAMAGE = 1
-    # RELOAD_TIME = 10  # s
-    RELOAD_TIME = 0.1  # s
+    RELOAD_TIME = 10  # s
     HILL_TIME = 3  # s
     SPEED = 100.0  # m/s
 
