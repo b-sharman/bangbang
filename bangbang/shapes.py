@@ -502,7 +502,7 @@ class Tree(Shape, constants.Tree):
         glTranslate(*self.pos)
         if self.is_falling:
             self.speed += Tree.ACC * delta
-            self.fall_angle += self.speed
+            self.fall_angle += self.speed * delta
             if self.fall_angle > 90:
                 self.fall_angle = 90
                 if not self.played_sound:
@@ -518,7 +518,7 @@ class Tree(Shape, constants.Tree):
             self.falling = right
         if speed < 0:
             self.falling = -right
-        self.speed = speed / Tree.HIT_HEIGHT
+        self.speed = speed
 
     @property
     def is_falling(self):
