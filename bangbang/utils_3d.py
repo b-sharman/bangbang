@@ -38,36 +38,9 @@ def mag(v: np.ndarray) -> np.ndarray:
 
 def normalize(v: np.ndarray) -> np.ndarray:
     """Return a normalized vector."""
+    # return 0 for an array of zeros
+    if np.all(v == 0.0): return v
     return v / mag(v)
-
-
-def offender(tank1, tank2):
-    """Did tank1 run into tank 2 or did tank2 run into tank1?"""
-
-    # Check if tank1 ran into tank 2
-    tank1_pos = tank1.pos + tank1.bout * 5
-    if collisions.collide_tank(DummyPos(tank1_pos), tank2, tank1.bout):
-        return tank1
-    else:
-        return tank2
-
-
-def random_tankpos(hillposes: list[tuple[float]], hw: int) -> np.ndarray[float]:
-    """Return an x, y, and z position for a tank."""
-
-    valid = False
-    while not valid:
-        bad_pos = False
-        x = random.uniform(-hw, hw)
-        y = 0.0
-        z = random.uniform(-hw, hw)
-        for pos in hillposes:
-            if collisions.collide_hill(DummyPos((x, y, z)), DummyPos(pos)):
-                bad_pos = True
-        if not bad_pos:
-            valid = True
-
-    return np.array((x, y, z))
 
 
 def read_obj_file(filename: str):

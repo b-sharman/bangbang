@@ -43,10 +43,15 @@ class Ground:
 class Hill:
     COLOR = (0.1, 0.3, 0.0)
 
+    # for collisions
+    # how far a tank backs up after hitting a hill
+    COLLIDE_DIST = 10  # m
+    RADIUS = 20  # m
+
 
 class LifeBar:
-    MARGIN = 50
-    UNIT = 200
+    MARGIN = 50  # px
+    UNIT = 200  # px
 
 class Mine:
     # time interval between beep noises
@@ -55,6 +60,9 @@ class Mine:
     RELOAD_TIME = 2  # s
 
     DAMAGE = 2
+
+    # for collisions
+    RADIUS = 2
 
 
 class MineExplosion:
@@ -69,7 +77,8 @@ class ReloadingBar:
 class Shell:
     # how many hits does this weapon deal to a Tank upon contact?
     DAMAGE = 1
-    RELOAD_TIME = 10  # s
+    # RELOAD_TIME = 10  # s
+    RELOAD_TIME = 0.1  # s
     HILL_TIME = 3  # s
     SPEED = 100.0  # m/s
 
@@ -92,8 +101,7 @@ class Spectator:
 
 
 class Tree:
-    ACC = 30.0  # degrees/s**2
-    HIT_HEIGHT = 3.0  # where the tank hits the tree
+    GRAV = 9.81 # m/s**2
 
 
 class VictoryBanner:
@@ -127,6 +135,12 @@ class Tank:
     # how many shell hits before dead?
     # TODO: rename this since a single mine hit does two damage
     HITS_TO_DIE = 5
+
+    # for collisions
+    RADIUS = 4  # m
+    COLLISION_SPHERE_BACK = 4.625
+    COLLISION_SPHERE_FRONT = 3.75
+    COLLISION_SPRINGBACK = 5.0  # m
 
 
 # raises ValueError if message types share a duplicate value
