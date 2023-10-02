@@ -101,7 +101,7 @@ class Spectator:
 
 
 class Tree:
-    GRAV = 9.81 # m/s**2
+    ACC = 200.0  # deg/s**2
 
 
 class VictoryBanner:
