@@ -47,6 +47,11 @@ class PlayerData:
         # don't know if this is correct - will need some trial and error
         return utils_3d.yaw(self.tangle, np.array((0.0, 0.0, 1.0)), np.array((1.0, 0.0, 0.0)))
 
+    # TODO: if these vectors are actually left instead of right, rename them
+    @property
+    def bright(self):
+        return utils_3d.normalize(np.cross(constants.UP, self.bout))
+
 
 class Client:
     def __init__(self, game: "game.Game") -> None:

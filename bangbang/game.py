@@ -20,10 +20,9 @@ from OpenGL.GLU import *
 import utils_3d
 import bbutils
 from client import Client, PlayerData
+import collisions
 import constants
 import shapes
-
-COLLISION_SPRINGBACK = 10.0  # m
 
 # For now, pygame init needs to be here since some classes load sounds, etc. in
 # their headers
@@ -85,6 +84,30 @@ class Game:
         print("Waiting for the game to start...")
         await self.client.greet(name)
 
+    def collisions(self) -> None:
+        # TODO: There's a way to make this average better than O(n^2)
+        for shape in self.groups.all_shapes:
+            if isinstance(shape, shapes.Shell):
+                # remove shells colliding with hills
+                for hill_pos in self.hill_poses:
+                    if collisions.collide_hill(hill_pos, shape.pos):
+                        shape.hill()
+
+                # remove shells exiting the playing area
+                if collisions.collide_shell_world(shape.pos, self.ground_hw):
+                    shape.hill()
+
+                # remove shells colliding with tanks
+                for tank in self.groups.tanks:
+                    if collisions.collide_tank(shape.pos, tank.state.pos, tank.state.bout):
+                        shape.die()
+
+        # tank-tree collisions
+        for tree in filter(lambda t: not t.is_falling, self.groups.trees):
+            for player_data in self.players.values():
+                if collisions.collide_tank(player_data.pos, tree.pos, player_data.bout):
+                    tree.fall(player_data.bright, player_data.speed)
+
     async def handle_message(self, message: dict) -> None:
         """Handle a JSON-loaded dict network message."""
         match message["type"]:
@@ -115,7 +138,8 @@ class Game:
             case constants.Msg.SHELL:
                 shell = shapes.Shell(message["angle"], message["id"], message["out"], message["pos"])
                 self.groups.all_shapes.append(shell)
-                self.reloadingbar.fire()
+                if message["id"] == self.player_id:
+                    self.reloadingbar.fire()
 
             case constants.Msg.START:
                 logging.debug("starting")
@@ -191,6 +215,7 @@ class Game:
         self.lifebar = shapes.LifeBar(self.players[self.player_id], SCR)
         self.reloadingbar = shapes.ReloadingBar(SCR[0])
 
+        # TODO: no special group is needed for hills
         self.groups.hills = [shapes.Hill(pos) for pos in self.hill_poses]
         self.groups.trees = [shapes.Tree(pos) for pos in self.tree_poses]
         self.groups.tanks = [shapes.Tank(self, client_id) for client_id in self.players]
@@ -252,6 +277,8 @@ class Game:
                 at = out + pos
             gluLookAt(*pos, *at, *constants.UP)
 
+            self.collisions()
+
             for shape in self.groups.all_shapes:
                 shape.update()
             # overlays must be updated last to render correctly
@@ -261,6 +288,7 @@ class Game:
             # I think this is a little slower than list.remove() because a whole new
             # linked list has to be built; however, it seems more Pythonic than
             # looping through and calling remove()
+            self.groups.tanks = [tank for tank in self.groups.tanks if tank.alive]
             self.groups.all_shapes = [shape for shape in self.groups.all_shapes if shape.alive]
 
             pygame.display.flip()

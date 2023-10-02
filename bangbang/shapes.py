@@ -9,6 +9,7 @@ with contextlib.redirect_stdout(None):
 
 from base_shapes import Shape
 from client import PlayerData
+from collections.abc import Iterable
 import constants
 import utils_3d
 
@@ -81,6 +82,44 @@ class Ground(Shape, constants.Ground):
         glPopMatrix()
 
 
+class HeadlessMine(Shape, constants.Mine):
+    def __init__(self, client_id: int, pos: Iterable[float]) -> None:
+        super().__init__()
+
+        self.client_id = client_id
+        self.game = game
+        self.pos = tuple(pos)
+
+        self.spawn_time = time.time()
+
+    def update(self):
+        # update self.clock
+        self.delta_time()
+
+        if self.clock - self.spawn_time >= Mine.LIFETIME:
+            self.die()
+
+
+class HeadlessShell(Shape, constants.Shell):
+    def __init__(self, angle: float, client_id: int, out: tuple[float], pos: tuple[float]):
+        super().__init__()
+
+        # self._clock is initialized in Shape.__init__
+        self.spawn_time = self.clock
+
+        # who shot the shell
+        self.client_id = client_id
+
+        self.angle = angle
+        self.pos = np.array(pos)
+        # raise the shell to make it appear like it's exiting the turret
+        self.pos[1] += self.START_HEIGHT
+        self.out = np.array(out)
+
+    def update(self):
+        self.pos += self.out * Shell.SPEED * self.delta_time()
+
+
 class Hill(Shape, constants.Hill):
     def __init__(self, pos):
         super().__init__()
@@ -103,109 +142,111 @@ class Hill(Shape, constants.Hill):
 class LifeBar(constants.LifeBar):
     """Overlay to show how much armor you have left."""
 
-    IMGS = [
-        pygame.image.load("../data/images/AAGH5.png"),
-        pygame.image.load("../data/images/AAGH4.png"),
-        pygame.image.load("../data/images/AAGH3.png"),
-        pygame.image.load("../data/images/AAGH2.png"),
-        pygame.image.load("../data/images/AAGH1.png"),
+    IMGS = (
         pygame.image.load("../data/images/blank.png"),
-    ]
+        pygame.image.load("../data/images/AAGH1.png"),
+        pygame.image.load("../data/images/AAGH2.png"),
+        pygame.image.load("../data/images/AAGH3.png"),
+        pygame.image.load("../data/images/AAGH4.png"),
+        pygame.image.load("../data/images/AAGH5.png"),
+    )
 
     def __init__(self, player_data: PlayerData, screen: tuple[int]):
         self.player_data = player_data
-        self.screen = screen
-        self.newimg_stuff()
+
+        glPushMatrix()
+        glLoadIdentity()
+        pts = utils_3d.window2view(
+            (
+                (
+                    screen[0] - LifeBar.MARGIN - LifeBar.UNIT,
+                    screen[1] - LifeBar.MARGIN - LifeBar.UNIT,
+                ),
+                (
+                    screen[0] - LifeBar.MARGIN - LifeBar.UNIT,
+                    screen[1] - LifeBar.MARGIN,
+                ),
+                (
+                    screen[0] - LifeBar.MARGIN,
+                    screen[1] - LifeBar.MARGIN,
+                ),
+                (
+                    screen[0] - LifeBar.MARGIN,
+                    screen[1] - LifeBar.MARGIN - LifeBar.UNIT,
+                ),
+            )
+        )
+        glPopMatrix()
+
+        self.gllists = []
+        first = True
+        for image in LifeBar.IMGS:
+            # generate texture
+            glEnable(GL_TEXTURE_2D)
+            texture = glGenTextures(1)
+            glBindTexture(GL_TEXTURE_2D, texture)
+            glTexImage2D(
+                GL_TEXTURE_2D,
+                0,
+                GL_RGBA,
+                image.get_width(),
+                image.get_height(),
+                0,
+                GL_RGBA,
+                GL_UNSIGNED_BYTE,
+                pygame.image.tostring(image, "RGBX", 1),
+            )
+            glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST)
+            glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST)
+            glDisable(GL_TEXTURE_2D)
+
+            # make a displaylist
+            glPushMatrix()
+            glLoadIdentity()
+            gllist = glGenLists(1)
+            glNewList(gllist, GL_COMPILE)
+
+            # turn on alpha blending
+            glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
+            glEnable(GL_BLEND)
+            glColor(1.0, 1.0, 1.0)  # ?
+            glDisable(GL_LIGHTING)
+            glEnable(GL_TEXTURE_2D)
+            glBindTexture(GL_TEXTURE_2D, texture)
+
+            glBegin(GL_QUADS)
+            glTexCoord2f(0.0, 0.0)
+            glVertex(pts[0])
+            glTexCoord2f(0.0, 1.0)
+            glVertex(pts[1])
+            glTexCoord2f(1.0, 1.0)
+            glVertex(pts[2])
+            glTexCoord2f(1.0, 0.0)
+            glVertex(pts[3])
+            glEnd()
+
+            glDisable(GL_TEXTURE_2D)
+            glEnable(GL_LIGHTING)
+            glDisable(GL_BLEND)
+
+            glEndList()
+            glPopMatrix()
+            self.gllists.append(gllist)
 
     def update(self):
         """Draw the LifeBar overlay."""
-
         glPushMatrix()
         glLoadIdentity()
-        glCallList(self.gllist)
-        glPopMatrix()
-
-    # TODO: find a better name for this method
-    def newimg_stuff(self):
-        # generate texture
-        glEnable(GL_TEXTURE_2D)
-        self.texture = glGenTextures(1)
-        glBindTexture(GL_TEXTURE_2D, self.texture)
-        self.current_image = LifeBar.IMGS[-self.player_data.hits_left - 1]
-        glTexImage2D(
-            GL_TEXTURE_2D,
-            0,
-            GL_RGBA,
-            self.current_image.get_width(),
-            self.current_image.get_height(),
-            0,
-            GL_RGBA,
-            GL_UNSIGNED_BYTE,
-            pygame.image.tostring(self.current_image, "RGBX", 1),
-        )
-        glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST)
-        glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST)
-        glDisable(GL_TEXTURE_2D)
-
-        # draw the texture into a display list
-        pts = [
-            (
-                self.screen[0] - LifeBar.MARGIN - LifeBar.UNIT,
-                self.screen[1] - LifeBar.MARGIN - LifeBar.UNIT,
-            ),
-            (
-                self.screen[0] - LifeBar.MARGIN - LifeBar.UNIT,
-                self.screen[1] - LifeBar.MARGIN,
-            ),
-            (self.screen[0] - LifeBar.MARGIN, self.screen[1] - LifeBar.MARGIN),
-            (
-                self.screen[0] - LifeBar.MARGIN,
-                self.screen[1] - LifeBar.MARGIN - LifeBar.UNIT,
-            ),
-        ]
-        glPushMatrix()
-        glLoadIdentity()
-        pts = utils_3d.window2view(pts)
-
-        self.gllist = glGenLists(1)
-        glNewList(self.gllist, GL_COMPILE)
-
-        # turn on alpha blending
-        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
-        glEnable(GL_BLEND)
-
-        # draw the model
-        glColor(1.0, 1.0, 1.0)  # ?
-        glDisable(GL_LIGHTING)
-        glEnable(GL_TEXTURE_2D)
-        glBindTexture(GL_TEXTURE_2D, self.texture)
-
-        glBegin(GL_QUADS)
-        glTexCoord2f(0.0, 0.0)
-        glVertex(pts[0])
-        glTexCoord2f(0.0, 1.0)
-        glVertex(pts[1])
-        glTexCoord2f(1.0, 1.0)
-        glVertex(pts[2])
-        glTexCoord2f(1.0, 0.0)
-        glVertex(pts[3])
-        glEnd()
-
-        glDisable(GL_TEXTURE_2D)
-        glEnable(GL_LIGHTING)
-
-        glDisable(GL_BLEND)
-
-        glEndList()
+        glCallList(self.gllists[self.player_data.hits_left])
         glPopMatrix()
 
 
-class Mine(Shape, constants.Mine):
+class Mine(HeadlessMine):
     BEEP_SOUND = pygame.mixer.Sound("../data/sound/mine.wav")
     EXPLODE_SOUND = pygame.mixer.Sound("../data/sound/mine_explode.wav")
 
-    def __init__(self, game, client_id, pos, color):
-        super().__init__()
+    def __init__(self, game: "game.Game", client_id: int, pos: Iterable[float], color: tuple[float]) -> None:
+        super().__init__(client_id, pos, color)
 
         if Mine.gllist == "Unknown":
             Mine.gllist = glGenLists(1)
@@ -213,16 +254,15 @@ class Mine(Shape, constants.Mine):
             utils_3d.exec_raw("../data/models/mine.raw")
             glEndList()
 
-        self.spawn_time = time.time()
+        self.color = color
         self.last_beep_time = self.spawn_time
 
-        self.client_id = client_id
-        self.game = game
-        self.color = color
-        self.pos = pos
+    def die(self):
+        super().die()
+        Mine.EXPLODE_SOUND.play()
 
     def update(self):
-        clock = time.time()
+        super().update()
 
         glPushMatrix()
         glColor(*self.color)
@@ -230,20 +270,15 @@ class Mine(Shape, constants.Mine):
         glCallList(Mine.gllist)
         glPopMatrix()
 
-        if clock - self.spawn_time >= Mine.LIFETIME:
-            self.die()
+        if not self.alive:
             self.game.make_mine_explosion(self.pos, self.color)
             # so the beep sound can't play
             return
 
         # make a beep sound periodically
-        if clock - self.last_beep_time >= Mine.BEEP_INTERVAL:
+        if self.clock - self.last_beep_time >= Mine.BEEP_INTERVAL:
             Mine.BEEP_SOUND.play()
-            self.last_beep_time = clock
-
-    def die(self):
-        super().die()
-        Mine.EXPLODE_SOUND.play()
+            self.last_beep_time = self.clock
 
 
 class MineExplosion(constants.MineExplosion, Explosion):
@@ -294,18 +329,16 @@ class ReloadingBar(constants.ReloadingBar):
         glPopMatrix()
 
 
-class Shell(Shape, constants.Shell):
+class Shell(HeadlessShell):
     # the shell "explosion" is the still image shown when a shell hits a hill
     explosion_gllist = "Unknown"
 
     SOUND = pygame.mixer.Sound("../data/sound/shell.wav")
 
-    def __init__(self, angle: float, client_id: int, out: tuple[float], pos: tuple[float]):
-        super().__init__()
+    def __init__(self, angle: float, client_id: int, out: tuple[float], pos: tuple[float]) -> None:
+        super().__init__(angle, client_id, out, pos)
 
-        # self._clock is initialized in Shape.__init__
-        self.spawn_time = self.clock
-
+        # make gllists if necessary
         if Shell.gllist == "Unknown":
             Shell.gllist = glGenLists(1)
             glNewList(Shell.gllist, GL_COMPILE)
@@ -319,30 +352,21 @@ class Shell(Shape, constants.Shell):
 
         self.SOUND.play()
 
-        # who shot the shell
-        self.client_id = client_id
-
-        self.angle = angle
-        self.pos = np.array(pos)
-        # raise the shell to make it appear like it's exiting the turret
-        # TODO: make a constant for this magic number
-        self.pos[1] += self.START_HEIGHT
-        self.out = np.array(out)
-
         # None until the shell hits a hill; time.time() thereafter
         self.hill_time = None
 
-    def update(self):
-        delta = self.delta_time()
+    def update(self) -> None:
+        if not self.collided:
+            super().update()
+        else:
+            # update self.clock
+            self.delta_time()
 
         # self.clock is inherited from Shape, and after calling delta_time, will
         # have a value equivalent to time.time()
         if self.collided and self.clock - self.hill_time >= Shell.HILL_TIME:
             self.die()
             return
-
-        if not self.collided:
-            self.pos += self.out * Shell.SPEED * delta
 
         glPushMatrix()
         glTranslate(*self.pos)
@@ -467,14 +491,16 @@ class Tree(Shape, constants.Tree):
         self.falling = np.zeros(3)
         self.fall_angle = 0.0
         self.played_sound = False
+        self.speed = None
 
     def update(self):
         delta = self.delta_time()
 
         glPushMatrix()
+        # TODO: make a constant for the Tree color
         glColor(0.64, 0.44, 0.17)
         glTranslate(*self.pos)
-        if self.falling.any():
+        if self.is_falling:
             self.speed += Tree.ACC * delta
             self.fall_angle += self.speed
             if self.fall_angle > 90:
@@ -486,13 +512,17 @@ class Tree(Shape, constants.Tree):
         glCallList(Tree.gllist)
         glPopMatrix()
 
-    def fall(self, angle, speed):
+    def fall(self, right, speed):
         """Called when a tank collides with a tree."""
         if speed > 0:
-            self.falling = angle
+            self.falling = right
         if speed < 0:
-            self.falling = -angle
+            self.falling = -right
         self.speed = speed / Tree.HIT_HEIGHT
+
+    @property
+    def is_falling(self):
+        return self.speed is not None
 
 
 class VictoryBanner(constants.VictoryBanner):
