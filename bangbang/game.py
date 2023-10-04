@@ -19,7 +19,7 @@ from OpenGL.GLU import *
 
 import utils_3d
 import bbutils
-from client import Client, PlayerData
+import client
 import collisions
 import constants
 import shapes
@@ -34,7 +34,7 @@ pygame.init()
 
 class Game:
     def __init__(self, no_music) -> None:
-        self.client = Client(self)
+        self.client = client.Client(self)
 
         # used to block opening the window until the game has started
         self.start_event = asyncio.Event()
@@ -43,7 +43,7 @@ class Game:
         # assigned upon receiving an ID message
         self.player_id = None
 
-        self.players: dict[int, PlayerData] = {}
+        self.initial_states: list[tuple[int, dict]] = []
 
         # set width when client receives START from server
         self.ground_hw: int | None = None
@@ -98,28 +98,28 @@ class Game:
                     shape.hill()
 
                 # remove shells colliding with tanks
-                for tank in self.groups.tanks:
-                    if collisions.collide_tank(shape.pos, tank.state.pos, tank.state.bout):
+                for tank in self.groups.tanks.values():
+                    if collisions.collide_tank(shape.pos, tank.pos, tank.bout):
                         shape.die()
 
         # tank-tree collisions
         for tree in filter(lambda t: not t.is_falling, self.groups.trees):
-            for player_data in self.players.values():
-                if collisions.collide_tank(player_data.pos, tree.pos, player_data.bout):
-                    tree.fall(player_data.bright, player_data.speed)
+            for tank in self.groups.tanks.values():
+                if collisions.collide_tank(tank.pos, tree.pos, tank.bout):
+                    tree.fall(tank.bright, tank.speed)
 
     async def handle_message(self, message: dict) -> None:
         """Handle a JSON-loaded dict network message."""
         match message["type"]:
             case constants.Msg.APPROVE:
                 try:
-                    self.players[message["id"]].update_state(message["state"])
+                    self.groups.tanks[message["id"]].update_state(message["state"])
                 except KeyError:
                     logging.log(logging.DEBUG, f"received APPROVE for player {message['id']} which does not exist")
                 else:
                     pass
                     # logging.debug(
-                    #     f"PlayerData {message['id']} state updated with {message['state']}"
+                    #     f"Tank {message['id']} state updated with {message['state']}"
                     # )
 
             case constants.Msg.ID:
@@ -131,7 +131,7 @@ class Game:
                         self,
                         message["id"],
                         message["pos"],
-                        self.players[message["id"]].color
+                        self.groups.tanks[message["id"]].color
                     )
                 )
 
@@ -143,14 +143,11 @@ class Game:
 
             case constants.Msg.START:
                 logging.debug("starting")
-                for client_id, state in message["states"]:
-                    self.players[client_id] = PlayerData(state)
+                self.initial_states += message["states"]
 
                 self.ground_hw = message["ground_hw"]
                 self.hill_poses = message["hill_poses"]
                 self.tree_poses = message["tree_poses"]
-                for client_id, state in message["states"]:
-                    self.players[client_id].update_state(state)
 
                 # allow the main game loop to start
                 self.start_event.set()
@@ -206,21 +203,20 @@ class Game:
         # set up the explosion displaylists
         shapes.setup_explosion()
 
-        # NATURE
-
         # make the sky blue
         glClearColor(0.25, 0.89, 0.92, 1.0)
-
-        ground = shapes.Ground(self.ground_hw)
-        self.lifebar = shapes.LifeBar(self.players[self.player_id], SCR)
-        self.reloadingbar = shapes.ReloadingBar(SCR[0])
 
         # TODO: no special group is needed for hills
         self.groups.hills = [shapes.Hill(pos) for pos in self.hill_poses]
         self.groups.trees = [shapes.Tree(pos) for pos in self.tree_poses]
-        self.groups.tanks = [shapes.Tank(self, client_id) for client_id in self.players]
+        self.groups.tanks = {client_id: shapes.Tank(self, client_id, state) for client_id, state in self.initial_states}
 
-        self.groups.all_shapes = [ground] + self.groups.hills + self.groups.trees + self.groups.tanks
+        # single-instance shapes
+        ground = shapes.Ground(self.ground_hw)
+        self.lifebar = shapes.LifeBar(self.groups.tanks[self.player_id], SCR)
+        self.reloadingbar = shapes.ReloadingBar(SCR[0])
+
+        self.groups.all_shapes = [ground] + self.groups.hills + self.groups.trees + list(self.groups.tanks.values())
 
         # start listening for keyboard input
         # self.tg is defined in initialize
@@ -270,10 +266,10 @@ class Game:
                 pos = self.spectator.pos
                 out = self.spectator.out
             else:
-                pos = np.array(self.player_data.pos)
+                pos = np.array(self.this_player.pos)
                 # TODO: define a constant for this magic number
                 pos[1] = 6.0
-                out = np.array(self.player_data.tout)
+                out = np.array(self.this_player.tout)
                 at = out + pos
             gluLookAt(*pos, *at, *constants.UP)
 
@@ -288,7 +284,11 @@ class Game:
             # I think this is a little slower than list.remove() because a whole new
             # linked list has to be built; however, it seems more Pythonic than
             # looping through and calling remove()
-            self.groups.tanks = [tank for tank in self.groups.tanks if tank.alive]
+            self.groups.tanks = {
+                client_id: tank
+                for client_id, tank in self.groups.tanks.items()
+                if tank.alive
+            }
             self.groups.all_shapes = [shape for shape in self.groups.all_shapes if shape.alive]
 
             pygame.display.flip()
@@ -300,8 +300,8 @@ class Game:
             frame_length = frame_end_time - frame_start_time
 
     @property
-    def player_data(self) -> PlayerData:
-        return self.players[self.player_id]
+    def this_player(self) -> shapes.Tank:
+        return self.groups.tanks[self.player_id]
 
 
 class PlayerInputHandler:
@@ -314,7 +314,7 @@ class PlayerInputHandler:
         """Interface to send requests to the server."""
         # to avoid sending the same set of actions twice in a row
         prev_actions = None
-        while self.game.player_data.alive:
+        while self.game.this_player.alive:
             try:
                 pressed = pygame.key.get_pressed()
                 actions: list[constants.Action] = [

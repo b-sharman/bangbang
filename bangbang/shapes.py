@@ -8,7 +8,6 @@ with contextlib.redirect_stdout(None):
     import pygame
 
 from base_shapes import Shape
-from client import PlayerData
 from collections.abc import Iterable
 import constants
 import utils_3d
@@ -120,6 +119,178 @@ class HeadlessShell(Shape, constants.Shell):
         self.pos += self.out * Shell.SPEED * self.delta_time()
 
 
+class HeadlessTank(Shape, constants.Tank):
+    def __init__(self, angle, client_id, color, ground_hw, name, pos):
+        super().__init__()
+
+        self.bangle = angle  # base angle
+        self.tangle = angle  # turret angle
+        self.client_id = client_id
+        self.color = color
+        self.ground_hw = ground_hw
+        self.name = name
+        self.pos = np.array(pos)
+
+        # snapping back: turret turns to meet base
+        # turning back: base turns to meet turret
+        # these variables are true if either t or ctrl t have been pressed
+        # I believe they can both be true simulatneously
+        self.snapping_back = False
+        self.turning_back = False
+
+        self.hits_left: int = self.HITS_TO_DIE  # how many more hits before dead?
+        self.speed = 0.0  # m / s, I hope
+
+        self.actions: set[constants.Action] = set()
+
+    def recv_hit(self, damage: int) -> None:
+        """Decrement the tank health by damage."""
+        self.hits_left -= damage
+        if self.hits_left <= 0:
+            self.die()
+
+    def snap_logic(self, target_angle, approaching_angle, incr):
+        """
+        Perform calculations for the snapping and turning back animations.
+
+        Returns the increment to be added to the approaching angle (which may be 0)
+        and a boolean indicating whether the animation is still going.
+
+        incr should be delta * (self.SNAP_SPEED or self.BROTATE).
+        """
+        diff = approaching_angle - target_angle
+        # the sign of the increment
+        direction = (diff < 0) - (diff > 0)
+        diff = abs(diff)
+        # always choose the shortest path
+        if diff > 180.0:
+            diff = 360 - diff
+            direction *= -1
+
+        # once within a certain threshold of the correct angle, stop snapping back
+        if diff <= incr:
+            return diff * direction, False
+        return incr * direction, True
+
+    def update(self) -> None:
+        delta = self.delta_time()
+
+        ip_bangle = 0
+        ip_tangle = 0
+
+        # TODO: ask some knowledgeable folks whether a match-case pattern would be more
+        # appropriate here
+        if constants.Action.ACCEL in self.actions:
+            self.speed = min(self.speed + self.ACC * delta, self.MAX_SPEED)
+
+        if constants.Action.ALL_LEFT in self.actions:
+            self.turning_back = False
+            self.snapping_back = False
+            ip_bangle = self.BROTATE
+            ip_tangle = self.BROTATE
+
+        if constants.Action.ALL_RIGHT in self.actions:
+            self.turning_back = False
+            self.snapping_back = False
+            ip_bangle = -self.BROTATE
+            ip_tangle = -self.BROTATE
+
+        if constants.Action.BASE_LEFT in self.actions:
+            # cancel turning back upon manual turn
+            self.turning_back = False
+            ip_bangle = self.BROTATE
+
+        if constants.Action.BASE_RIGHT in self.actions:
+            # cancel turning back upon manual turn
+            self.turning_back = False
+            ip_bangle = -self.BROTATE
+
+        if constants.Action.DEACCEL in self.actions:
+            self.speed = max(self.speed - self.ACC * delta, self.MIN_SPEED)
+
+        if constants.Action.TURN_BACK in self.actions:
+            self.turning_back = True
+
+        if constants.Action.TURRET_LEFT in self.actions:
+            # cancel snapping back upon manual turn
+            self.snapping_back = False
+            ip_tangle = self.TROTATE
+
+        if constants.Action.TURRET_RIGHT in self.actions:
+            # cancel snapping back upon manual turn
+            self.snapping_back = False
+            ip_tangle = -self.TROTATE
+
+        if constants.Action.SNAP_BACK in self.actions:
+            self.snapping_back = True
+
+        if constants.Action.STOP in self.actions and abs(self.speed) <= self.SNAP_STOP:
+            self.speed = 0.0
+
+        # snap_logic returns the number of degrees to turn this frame; all the other
+        # logic specifies the rate of turning in degrees per second
+        if not self.snapping_back:
+            ip_tangle *= delta
+        if not self.turning_back:
+            ip_bangle *= delta
+
+        # handle snapping/turning back
+        if self.snapping_back and ip_tangle == 0.0:
+            ip_tangle, self.snapping_back = self.snap_logic(
+                self.bangle, self.tangle, self.SNAP_SPEED * delta
+            )
+        if self.turning_back and ip_bangle == 0.0:
+            ip_bangle, self.turning_back = self.snap_logic(
+                self.tangle, self.bangle, self.BROTATE * delta
+            )
+
+        # adjust base and turret angles and out vectors if they've changed
+        if ip_bangle:
+            self.bangle += ip_bangle
+        if ip_tangle:
+            self.tangle += ip_tangle
+
+        # make sure the angles don't get too high, this helps the turret animation
+        self.bangle %= 360.0
+        self.tangle %= 360.0
+
+        # move the tank, according to the speed
+        self.pos += self.bout * self.speed * delta
+        # ensure the tank does not go over the edge of the world
+        self.pos[0] = max(min(self.pos[0], self.ground_hw), -self.ground_hw)
+        self.pos[2] = max(min(self.pos[2], self.ground_hw), -self.ground_hw)
+
+    @property
+    def state(self):
+        # TODO: make this dynamically change to not send already-known data
+        return {
+            "bangle": self.bangle,
+            "color": self.color,
+            "hits_left": self.hits_left,
+            "name": self.name,
+            "pos": tuple(self.pos),
+            "speed": self.speed,
+            "tangle": self.tangle,
+        }
+
+    # vector properties
+
+    @property
+    def bout(self):
+        # don't know if this is correct - will need some trial and error
+        return utils_3d.yaw(self.bangle, np.array((0.0, 0.0, 1.0)), np.array((1.0, 0.0, 0.0)))
+
+    @property
+    def tout(self):
+        # don't know if this is correct - will need some trial and error
+        return utils_3d.yaw(self.tangle, np.array((0.0, 0.0, 1.0)), np.array((1.0, 0.0, 0.0)))
+
+    # TODO: if these vectors are actually left instead of right, rename them
+    @property
+    def bright(self):
+        return utils_3d.normalize(np.cross(constants.UP, self.bout))
+
+
 class Hill(Shape, constants.Hill):
     def __init__(self, pos):
         super().__init__()
@@ -151,8 +322,8 @@ class LifeBar(constants.LifeBar):
         pygame.image.load("../data/images/AAGH5.png"),
     )
 
-    def __init__(self, player_data: PlayerData, screen: tuple[int]):
-        self.player_data = player_data
+    def __init__(self, tank: "shapes.Tank", screen: tuple[int]):
+        self.tank = tank
 
         glPushMatrix()
         glLoadIdentity()
@@ -237,7 +408,7 @@ class LifeBar(constants.LifeBar):
         """Draw the LifeBar overlay."""
         glPushMatrix()
         glLoadIdentity()
-        glCallList(self.gllists[self.player_data.hits_left])
+        glCallList(self.gllists[self.tank.hits_left])
         glPopMatrix()
 
 
@@ -432,7 +603,7 @@ class Spectator(Shape, constants.Spectator):
         return utils_3d.normalize(np.cross(constants.UP, self.out))
 
 
-class Tank(Shape):
+class Tank(HeadlessTank):
     # The tank model is composed of two models: the turret and the base. This is so that
     # the turret can spin independently of the base. B stands for base, T stands for
     # turret.
@@ -440,8 +611,15 @@ class Tank(Shape):
     blist = "Unknown"
     tlist = "Unknown"
 
-    def __init__(self, game: "game.Game", client_id: int):
-        super().__init__()
+    def __init__(self, game: "game.Game", client_id: int, state: dict):
+        super().__init__(
+            state["bangle"],
+            client_id,
+            state["color"],
+            game.ground_hw,
+            state["name"],
+            state["pos"],
+        )
 
         if Tank.blist == "Unknown":
             Tank.blist = glGenLists(1)
@@ -456,22 +634,27 @@ class Tank(Shape):
 
         self.game = game
         self.client_id = client_id
+        self.update_state(state)
 
-    def update(self):
+    def update(self) -> None:
+        super().update()
+
         for angle, gllist in (
-            (self.state.bangle, self.blist),
-            (self.state.tangle, self.tlist),
+            (self.bangle, self.blist),
+            (self.tangle, self.tlist),
         ):
             glPushMatrix()
-            glColor(*self.state.color)
-            glTranslate(*self.state.pos)
+            glColor(*self.color)
+            glTranslate(*self.pos)
             glRotate(angle, *constants.UP)
             glCallList(gllist)
             glPopMatrix()
 
-    @property
-    def state(self):
-        return self.game.players[self.client_id]
+    def update_state(self, state: dict) -> None:
+        """Force-rewrite values such as pos, bangle, etc."""
+        if "pos" in state:
+            state["pos"] = np.array(state["pos"])
+        self.__dict__.update(state)
 
 
 class Tree(Shape, constants.Tree):

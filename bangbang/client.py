@@ -10,49 +10,6 @@ import constants
 import utils_3d
 
 
-class PlayerData:
-    """Class that updates its __dict__ from data coming over the network."""
-
-    def __init__(self, state: Optional[dict[str, Any]] = None) -> None:
-        if state is not None:
-            self.update_state(state)
-
-    def update_state(self, state: dict[str, Any]) -> None:
-        """
-        Assign this class's attributes to values corresponding to `state`.
-
-        This essentially translates a dict of vars and values to attributes
-        For instance,
-            >>> p = PlayerData()
-            >>> p.update_state({"client_id": 0, "name": "foo"})
-        should be more or less equivalent to
-            >>> p = PlayerData()
-            >>> p.client_id = 0
-            >>> p.name = "foo"
-        """
-        self.__dict__.update(state)
-
-    @property
-    def alive(self):
-        return self.hits_left > 0
-
-    # TODO: this is duplicated code from server.Tank - find a way to reuse it
-    @property
-    def bout(self):
-        # don't know if this is correct - will need some trial and error
-        return utils_3d.yaw(self.bangle, np.array((0.0, 0.0, 1.0)), np.array((1.0, 0.0, 0.0)))
-
-    @property
-    def tout(self):
-        # don't know if this is correct - will need some trial and error
-        return utils_3d.yaw(self.tangle, np.array((0.0, 0.0, 1.0)), np.array((1.0, 0.0, 0.0)))
-
-    # TODO: if these vectors are actually left instead of right, rename them
-    @property
-    def bright(self):
-        return utils_3d.normalize(np.cross(constants.UP, self.bout))
-
-
 class Client:
     def __init__(self, game: "game.Game") -> None:
         self.game = game
