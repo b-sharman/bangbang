@@ -1,5 +1,3 @@
-# TODO: make constants for all the magic numbers in this file
-
 import numpy as np
 
 import bbutils
