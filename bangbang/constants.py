@@ -101,6 +101,7 @@ class Spectator:
 
 class Tree:
     ACC = 200.0  # deg/s**2
+    COLOR = (0.64, 0.44, 0.17)
 
 
 class VictoryBanner:
