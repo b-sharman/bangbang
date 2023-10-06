@@ -680,8 +680,7 @@ class Tree(Shape, constants.Tree):
         delta = self.delta_time()
 
         glPushMatrix()
-        # TODO: make a constant for the Tree color
-        glColor(0.64, 0.44, 0.17)
+        glColor(Tree.COLOR)
         glTranslate(*self.pos)
         if self.is_falling:
             self.speed += Tree.ACC * delta
