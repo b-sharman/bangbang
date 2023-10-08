@@ -313,7 +313,7 @@ class PlayerInputHandler:
     async def run(self) -> None:
         """Interface to send requests to the server."""
         # to avoid sending the same set of actions twice in a row
-        prev_actions = None
+        prev_actions: Optional[list[constants.Action]] = None
         while self.game.this_player.alive:
             try:
                 pressed = pygame.key.get_pressed()

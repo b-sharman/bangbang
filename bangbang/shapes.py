@@ -264,6 +264,7 @@ class HeadlessTank(Shape, constants.Tank):
     def state(self):
         # TODO: make this dynamically change to not send already-known data
         return {
+            "actions": tuple(self.actions),
             "bangle": self.bangle,
             "color": self.color,
             "hits_left": self.hits_left,
@@ -652,8 +653,11 @@ class Tank(HeadlessTank):
 
     def update_state(self, state: dict) -> None:
         """Force-rewrite values such as pos, bangle, etc."""
+        if "actions" in state:
+            state["actions"] = set(state["actions"])
         if "pos" in state:
             state["pos"] = np.array(state["pos"])
+            print(f"old pos: {self.pos}\nnew pos: {state['pos']}\n")
         self.__dict__.update(state)
 
 
