@@ -219,7 +219,7 @@ class Server:
             for client_id, tank in self.tanks.items():
                 # tank.update() returns whether a network update is necessary
                 if tank.update():
-                    print(f"sending update for tank {id}")
+                    print(f"sending update for tank {client_id}")
                     self.server.message_all(
                         {
                             "type": constants.Msg.APPROVE,
@@ -236,8 +236,9 @@ class Server:
             self.tanks = {client_id: tank for client_id, tank in self.tanks.items() if tank.alive}
             self.mines = [m for m in self.mines if m.alive]
             self.shells = [s for s in self.shells if s.alive]
-            # TODO: make a constant for this magic number
-            await asyncio.sleep(0.05)
+
+            # allow other coroutines (including networking) to take place
+            await asyncio.sleep(0)
 
     def setup_env(
         self,
