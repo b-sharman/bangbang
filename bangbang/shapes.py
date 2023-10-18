@@ -38,12 +38,13 @@ class Explosion(Shape, constants.Explosion):
     def update(self):
         # don't play animation too fast
         clock = time.time()
-        if clock - self.prev_frame_time < self.SECONDS_PER_FRAME:
-            return
-        self.prev_frame_time = clock
 
         self._draw()
 
+        if clock - self.prev_frame_time < self.SECONDS_PER_FRAME:
+            return
+
+        self.prev_frame_time = clock
         self.frame_index += 1
         if self.frame_index >= self.NO_FRAMES:
             self.die()
