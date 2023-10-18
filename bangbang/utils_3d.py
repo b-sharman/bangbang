@@ -1,7 +1,8 @@
+import numpy as np
 from OpenGL.GL import *
 from OpenGL.GLU import *
 
-import numpy as np
+import constants
 
 
 def exec_raw(full_name: str) -> None:
@@ -128,12 +129,11 @@ def setup_explosion(no_explosion_frames, no_mine_frames) -> tuple[list["gllist"]
 
 def window2view(pts: list[tuple[float]]) -> list[tuple[float]]:
     """Convert window coordinates to 3D coordinates."""
-    # TODO: remove the magic constant
     return [
         gluUnProject(
             pt[0],
             pt[1],
-            0.001,
+            constants.OVERLAY_DISTANCE,
             glGetDoublev(GL_MODELVIEW_MATRIX),
             glGetDoublev(GL_PROJECTION_MATRIX),
             glGetIntegerv(GL_VIEWPORT)
