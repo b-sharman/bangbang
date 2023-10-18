@@ -20,6 +20,8 @@ MIN_SPAWN_DIST = 50  # m
 
 # height at which gluLookAt is called
 CAMERA_HEIGHT = 6.0  # m
+# how far 2D elements are drawn from the camera for gluUnProject
+OVERLAY_DISTANCE = 0.001  # m
 
 # network constants
 PORT = 4320
