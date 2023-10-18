@@ -50,7 +50,7 @@ class Game:
         self.hill_poses: list[tuple] | None = None
         self.tree_poses: list[tuple] | None = None
 
-        # used to avoid all_shapes, tanks, etc. cluttering the Game namespace
+        # used to avoid update_list, tanks, etc. cluttering the Game namespace
         # https://docs.python.org/3/library/types.html#types.SimpleNamespace
         self.groups = types.SimpleNamespace()
 
@@ -86,7 +86,7 @@ class Game:
 
     def collisions(self) -> None:
         # TODO: There's a way to make this average better than O(n^2)
-        for shape in self.groups.all_shapes:
+        for shape in self.groups.update_list:
             if isinstance(shape, shapes.Shell) and not shape.collided:
                 # remove shells colliding with hills
                 for hill_pos in self.hill_poses:
@@ -117,16 +117,20 @@ class Game:
                 except KeyError:
                     logging.log(logging.DEBUG, f"received APPROVE for player {message['id']} which does not exist")
                 else:
-                    pass
-                    # logging.debug(
-                    #     f"Tank {message['id']} state updated with {message['state']}"
-                    # )
+                    # Tank.update_state() calls die() if hits_left <= 0
+                    if not self.groups.tanks[message["id"]].alive and message["id"] == self.player_id:
+                        self.spectator = shapes.Spectator(
+                            self.this_player.pos,
+                            self.this_player.tout,
+                            self.this_player.tangle
+                        )
+                        self.groups.update_list.append(self.spectator)
 
             case constants.Msg.ID:
                 self.player_id = message["id"]
 
             case constants.Msg.MINE:
-                self.groups.all_shapes.append(
+                self.groups.update_list.append(
                     shapes.Mine(
                         self,
                         message["id"],
@@ -137,7 +141,7 @@ class Game:
 
             case constants.Msg.SHELL:
                 shell = shapes.Shell(message["angle"], message["id"], message["out"], message["pos"])
-                self.groups.all_shapes.append(shell)
+                self.groups.update_list.append(shell)
                 if message["id"] == self.player_id:
                     self.reloadingbar.fire()
 
@@ -209,14 +213,20 @@ class Game:
         # TODO: no special group is needed for hills
         self.groups.hills = [shapes.Hill(pos) for pos in self.hill_poses]
         self.groups.trees = [shapes.Tree(pos) for pos in self.tree_poses]
-        self.groups.tanks = {client_id: shapes.Tank(self, client_id, state) for client_id, state in self.initial_states}
+        self.groups.tanks = dict()
+        for client_id, state in self.initial_states:
+            if client_id == self.player_id:
+                self.this_player = shapes.Tank(self, client_id, state)
+                self.groups.tanks[client_id] = self.this_player
+            else:
+                self.groups.tanks[client_id] = shapes.Tank(self, client_id, state)
 
         # single-instance shapes
         ground = shapes.Ground(self.ground_hw)
         self.lifebar = shapes.LifeBar(self.groups.tanks[self.player_id], SCR)
         self.reloadingbar = shapes.ReloadingBar(SCR[0])
 
-        self.groups.all_shapes = [ground] + self.groups.hills + self.groups.trees + list(self.groups.tanks.values())
+        self.groups.update_list = [ground] + self.groups.hills + self.groups.trees + [t for t in self.groups.tanks.values() if t.client_id != self.player_id]
 
         # start listening for keyboard input
         # self.tg is defined in initialize
@@ -228,7 +238,10 @@ class Game:
         # this comment is because it used to be implemented here
 
     def make_mine_explosion(self, pos, color):
-        self.groups.all_shapes.append(shapes.MineExplosion(pos, color))
+        self.groups.update_list.append(shapes.MineExplosion(pos, color))
+
+    def make_tank_explosion(self, pos, color):
+        self.groups.update_list.append(shapes.Explosion(pos, color))
 
     async def start_main_loop(self):
         # timestamp of the final frame
@@ -267,21 +280,25 @@ class Game:
             #
             # self.this_player is an instance of Tank, but we want to call the
             # HeadlessTank update, which excludes openGL calls
-            shapes.HeadlessTank.update(self.this_player)
-            camera_pos = np.array((self.this_player.pos[0], constants.CAMERA_HEIGHT, self.this_player.pos[2]))
+            if hasattr(self, "spectator"):
+                camera_pos = self.spectator.pos
+                camera_out = self.spectator.out
+            else:
+                shapes.HeadlessTank.update(self.this_player)
+                camera_pos = np.array((self.this_player.pos[0], constants.CAMERA_HEIGHT, self.this_player.pos[2]))
+                camera_out = self.this_player.tout
             gluLookAt(
                 # pos
                 *camera_pos,
                 # at
-                *(self.this_player.tout + camera_pos),
+                *(camera_out + camera_pos),
                 # up
                 *constants.UP
             )
-            self.this_player.gl_update()
+            if not hasattr(self, "spectator"):
+                self.this_player.gl_update()
 
-            for shape in self.groups.all_shapes:
-                if shape is self.this_player:
-                    continue
+            for shape in self.groups.update_list:
                 shape.update()
             # overlays must be updated last to render correctly
             self.lifebar.update()
@@ -295,7 +312,7 @@ class Game:
                 for client_id, tank in self.groups.tanks.items()
                 if tank.alive
             }
-            self.groups.all_shapes = [shape for shape in self.groups.all_shapes if shape.alive]
+            self.groups.update_list = [shape for shape in self.groups.update_list if shape.alive]
 
             pygame.display.flip()
 
@@ -304,11 +321,6 @@ class Game:
 
             frame_end_time = time.time()
             frame_length = frame_end_time - frame_start_time
-
-    @property
-    def this_player(self) -> shapes.Tank:
-        return self.groups.tanks[self.player_id]
-
 
 class PlayerInputHandler:
     """Sends keyboard input to the server."""

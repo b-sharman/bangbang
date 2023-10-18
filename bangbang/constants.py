@@ -96,12 +96,12 @@ class Shell:
 class Spectator:
     HEIGHT = 20.0  # m
 
-    SPEED = 10.0  # m/s
-    FAST_SPEED = 30.0  # m/s
+    SPEED = 20.0  # m/s
+    FAST_SPEED = 40.0  # m/s
     # speed of rising animation after death
-    RISE_SPEED = 0.2  # m/s
+    RISE_SPEED = 30  # m/s
     # how fast to turn when left or right arrow keys are pressed
-    ROTATE_SPEED = 2  # deg / s
+    ROTATE_SPEED = 60  # deg / s
 
 
 class Tree:

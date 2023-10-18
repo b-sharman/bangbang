@@ -561,7 +561,7 @@ class Shell(HeadlessShell):
 
 # TODO: make an abstract class containing shared code from Tank, Player, and Spectator
 class Spectator(Shape, constants.Spectator):
-    def __init__(self, pos, out, right, angle):
+    def __init__(self, pos, out, angle):
         super().__init__()
 
         self.pos = np.array(pos)
@@ -571,29 +571,22 @@ class Spectator(Shape, constants.Spectator):
         delta = super().delta_time()
 
         # "rise" animation
-        if self.pos[1] < self.HEIGHT:
-            self.pos[1] = min(self.pos[1] + (self.RISE_SPEED * delta), self.HEIGHT)
+        if self.pos[1] < Spectator.HEIGHT:
+            self.pos[1] = min(self.pos[1] + (Spectator.RISE_SPEED * delta), Spectator.HEIGHT)
 
         keys = pygame.key.get_pressed()
 
-        ip_r = 0.0
-        if keys[pygame.K_LEFT]:
-            ip_r = self.ROTATE_SPEED * delta
-        elif keys[pygame.K_RIGHT]:
-            ip_r = -self.ROTATE_SPEED * delta
+        ip_r = (keys[pygame.K_LEFT] - keys[pygame.K_RIGHT]) * self.ROTATE_SPEED * delta
         if ip_r:
             self.out = utils_3d.yaw(ip_r, self.out, self.right)
 
-        speed = 0
-        shift = keys[K_LSHIFT] or keys[K_RSHIFT]
-        if keys[pygame.K_UP]:
-            speed = 1
-        elif keys[pygame.K_DOWN]:
-            speed = -1
+        # +1 if up, -1 if down, 0 if neither or both
+        speed = keys[pygame.K_UP] - keys[pygame.K_DOWN]
+        shift = keys[pygame.K_LSHIFT] or keys[pygame.K_RSHIFT]
         if shift:
-            speed *= self.FAST_SPEED
+            speed *= Spectator.FAST_SPEED
         else:
-            speed *= self.SPEED
+            speed *= Spectator.SPEED
         self.pos += self.out * speed * delta
 
     @property
@@ -656,6 +649,9 @@ class Tank(HeadlessTank):
             state["actions"] = set(state["actions"])
         if "pos" in state:
             state["pos"] = np.array(state["pos"])
+        if "hits_left" in state and state["hits_left"] <= 0:
+            self.die()
+            self.game.make_tank_explosion(self.pos, self.color)
         self.__dict__.update(state)
 
 
