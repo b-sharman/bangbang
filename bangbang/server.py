@@ -131,7 +131,7 @@ class Server:
 
         for mine in self.mines:
             for tank in self.tanks.values():
-                if tank.client_id == mine.client_id and collisions.collide_tank_mine(tank.pos, mine.pos, tank.bout) and mine.name != tank.name:
+                if tank.client_id != mine.client_id and collisions.collide_tank_mine(tank.pos, mine.pos, tank.bout):
                     print(f"mine hit tank {tank.client_id}")
                     tank.recv_hit(constants.Mine.DAMAGE)
                     tank.set_needs_update()

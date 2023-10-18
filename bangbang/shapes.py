@@ -86,7 +86,6 @@ class HeadlessMine(Shape, constants.Mine):
         super().__init__()
 
         self.client_id = client_id
-        self.game = game
         self.pos = tuple(pos)
 
         self.spawn_time = time.time()
@@ -418,7 +417,7 @@ class Mine(HeadlessMine):
     EXPLODE_SOUND = pygame.mixer.Sound("../data/sound/mine_explode.wav")
 
     def __init__(self, game: "game.Game", client_id: int, pos: Iterable[float], color: tuple[float]) -> None:
-        super().__init__(client_id, pos, color)
+        super().__init__(client_id, pos)
 
         if Mine.gllist == "Unknown":
             Mine.gllist = glGenLists(1)
@@ -427,6 +426,8 @@ class Mine(HeadlessMine):
             glEndList()
 
         self.color = color
+        self.game = game
+
         self.last_beep_time = self.spawn_time
 
     def die(self):
