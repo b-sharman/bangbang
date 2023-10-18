@@ -257,25 +257,31 @@ class Game:
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
             glLoadIdentity()
 
-            # set up the observer
-            # choose the camera attributes based on whether we're playing or spectating
-            # TODO; How expensive is hasattr? It could be replaced by a
-            # self.is_spectating variable or a class that stores just the pos and out
-            # of either the player or the spectator.
-            if hasattr(self, "spectator"):
-                pos = self.spectator.pos
-                out = self.spectator.out
-            else:
-                pos = np.array(self.this_player.pos)
-                # TODO: define a constant for this magic number
-                pos[1] = 6.0
-                out = np.array(self.this_player.tout)
-                at = out + pos
-            gluLookAt(*pos, *at, *constants.UP)
-
             self.collisions()
 
+            # gluLookAt needs to be called immediately after player update to avoid
+            # "jumping" artifacts resulting from respective .pos 's being updated at
+            # slightly different times. But gluLookAt needs to be called before the gl
+            # rendering code in player, so player.update has to be split into two
+            # functions.
+            #
+            # self.this_player is an instance of Tank, but we want to call the
+            # HeadlessTank update, which excludes openGL calls
+            shapes.HeadlessTank.update(self.this_player)
+            camera_pos = np.array((self.this_player.pos[0], constants.CAMERA_HEIGHT, self.this_player.pos[2]))
+            gluLookAt(
+                # pos
+                *camera_pos,
+                # at
+                *(self.this_player.tout + camera_pos),
+                # up
+                *constants.UP
+            )
+            self.this_player.gl_update()
+
             for shape in self.groups.all_shapes:
+                if shape is self.this_player:
+                    continue
                 shape.update()
             # overlays must be updated last to render correctly
             self.lifebar.update()

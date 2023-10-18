@@ -18,6 +18,9 @@ TREE_BUFFER = 0  # m
 # minimum spawning distance between tanks
 MIN_SPAWN_DIST = 50  # m
 
+# height at which gluLookAt is called
+CAMERA_HEIGHT = 6.0  # m
+
 # network constants
 PORT = 4320
 SERVER_START_KEYWORD = "start"
