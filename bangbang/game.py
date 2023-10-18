@@ -87,7 +87,7 @@ class Game:
     def collisions(self) -> None:
         # TODO: There's a way to make this average better than O(n^2)
         for shape in self.groups.all_shapes:
-            if isinstance(shape, shapes.Shell):
+            if isinstance(shape, shapes.Shell) and not shape.collided:
                 # remove shells colliding with hills
                 for hill_pos in self.hill_poses:
                     if collisions.collide_hill(hill_pos, shape.pos):
