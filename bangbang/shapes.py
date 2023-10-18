@@ -531,13 +531,8 @@ class Shell(HeadlessShell):
     def update(self) -> None:
         if not self.collided:
             super().update()
-        else:
-            # update self.clock
-            self.delta_time()
 
-        # self.clock is inherited from Shape, and after calling delta_time, will
-        # have a value equivalent to time.time()
-        if self.collided and self.clock - self.hill_time >= Shell.HILL_TIME:
+        if self.collided and time.time() - self.hill_time >= Shell.HILL_TIME:
             self.die()
             return
 
