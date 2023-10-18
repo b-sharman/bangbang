@@ -637,9 +637,7 @@ class Tank(HeadlessTank):
         self.client_id = client_id
         self.update_state(state)
 
-    def update(self) -> None:
-        super().update()
-
+    def gl_update(self) -> None:
         for angle, gllist in (
             (self.bangle, self.blist),
             (self.tangle, self.tlist),
@@ -651,13 +649,16 @@ class Tank(HeadlessTank):
             glCallList(gllist)
             glPopMatrix()
 
+    def update(self) -> None:
+        super().update()
+        self.gl_update()
+
     def update_state(self, state: dict) -> None:
         """Force-rewrite values such as pos, bangle, etc."""
         if "actions" in state:
             state["actions"] = set(state["actions"])
         if "pos" in state:
             state["pos"] = np.array(state["pos"])
-            print(f"old pos: {self.pos}\nnew pos: {state['pos']}\n")
         self.__dict__.update(state)
 
 
