@@ -57,6 +57,10 @@ class Tank(HeadlessTank):
         self.__needs_update = True
         self.actions = actions
 
+    def set_needs_update(self) -> None:
+        """Make this Tank send a network update on the next call to update()."""
+        self.__needs_update = True
+
 
 class Server:
     def __init__(self) -> None:
@@ -87,6 +91,8 @@ class Server:
                     tank1.speed = 0.0
                     tank2.speed = 0.0
                     already_checked.append(pair)
+                    tank1.set_needs_update()
+                    tank2.set_needs_update()
 
         for hill_pos in self.hill_poses:
             # tank vs. hill
@@ -96,6 +102,7 @@ class Server:
                     # back up the tank away from the hill so they aren't permanently stuck
                     tank.pos += utils_3d.normalize(tank.pos - hill_pos) * constants.Hill.COLLIDE_DIST
                     tank.speed = 0.0
+                    tank.set_needs_update()
 
             # shell vs. hill
             # Trust the client to also check for shell-hill collisions to
@@ -118,6 +125,7 @@ class Server:
                 if tank.client_id != shell.client_id and collisions.collide_tank(tank.pos, np.array((shell.pos[0], 0.0, shell.pos[2])), tank.bout):
                     print(f"shell hit tank {tank.client_id}")
                     tank.recv_hit(constants.Shell.DAMAGE)
+                    tank.set_needs_update()
                     shell.die()
                     # TODO: make some sort of network signal to tell clients to play a "shell hit" sound
 
@@ -126,6 +134,7 @@ class Server:
                 if tank.client_id == mine.client_id and collisions.collide_tank_mine(tank.pos, mine.pos, tank.bout) and mine.name != tank.name:
                     print(f"mine hit tank {tank.client_id}")
                     tank.recv_hit(constants.Mine.DAMAGE)
+                    tank.set_needs_update()
                     mine.die()
 
     def handle_request(self, client_id, actions) -> None:
