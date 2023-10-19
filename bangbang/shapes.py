@@ -387,14 +387,9 @@ class LifeBar(constants.LifeBar):
             glBindTexture(GL_TEXTURE_2D, texture)
 
             glBegin(GL_QUADS)
-            glTexCoord2f(0.0, 0.0)
-            glVertex(pts[0])
-            glTexCoord2f(0.0, 1.0)
-            glVertex(pts[1])
-            glTexCoord2f(1.0, 1.0)
-            glVertex(pts[2])
-            glTexCoord2f(1.0, 0.0)
-            glVertex(pts[3])
+            for pt, coord in zip(pts, ((0.0, 0.0), (0.0, 1.0), (1.0, 1.0), (1.0, 0.0))):
+                glTexCoord2f(*coord)
+                glVertex(pt)
             glEnd()
 
             glDisable(GL_TEXTURE_2D)
