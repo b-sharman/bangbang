@@ -1,8 +1,6 @@
-This is project is several years old, and I'm refactoring it, making it asynchronous, and rewriting the network backend with websockets simultaneously. Therefore, it's currently unplayable...
+This is project is several years old, and I'm refactoring it, making it asynchronous, and rewriting the network backend with websockets simultaneously. It's a little buggy, as I am still reimplementing some functionality, but it is playable.
 
 # How to play the game
-
-It's not currently playable (see above), but here's how you can test it.
 
 1. Install these dependencies:
 * [aioconsole](https://aioconsole.readthedocs.io/en/latest/)
