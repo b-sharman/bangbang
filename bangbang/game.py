@@ -117,14 +117,30 @@ class Game:
                 except KeyError:
                     logging.log(logging.DEBUG, f"received APPROVE for player {message['id']} which does not exist")
                 else:
+                    num_alive = len(tuple(t for t in self.groups.tanks.values() if t.alive))
+
                     # Tank.update_state() calls die() if hits_left <= 0
-                    if not self.groups.tanks[message["id"]].alive and message["id"] == self.player_id:
-                        self.spectator = shapes.Spectator(
-                            self.this_player.pos,
-                            self.this_player.tout,
-                            self.this_player.tangle
-                        )
-                        self.groups.update_list.append(self.spectator)
+                    # if this player has died
+                    # and there are at least two players left
+                    if message["id"] == self.player_id and not self.this_player.alive and num_alive >= 2:
+                            self.spectator = shapes.Spectator(
+                                self.this_player.pos,
+                                self.this_player.tout,
+                                self.this_player.tangle
+                            )
+                            self.groups.update_list.append(self.spectator)
+
+                    # if only one player remains
+                    if num_alive == 1:
+                        # if this player is the winning player
+                        # and we have not already made a victory banner
+                        if self.this_player.alive and self.end_time is None:
+                            self.groups.update_list.append(
+                                shapes.VictoryBanner(pygame.display.get_window_size())
+                            )
+
+                        # end the game in END_TIME seconds
+                        self.end_time = time.time() + constants.END_TIME
 
             case constants.Msg.ID:
                 self.player_id = message["id"]
@@ -245,12 +261,12 @@ class Game:
 
     async def start_main_loop(self):
         # timestamp of the final frame
-        end_time = None
+        self.end_time = None
 
         frame_length = -1.0
         frame_end_time = time.time()
 
-        while end_time is None or frame_end_time < end_time:
+        while self.end_time is None or frame_end_time < self.end_time:
             frame_start_time = frame_end_time
 
             # listen for input device events
@@ -264,7 +280,7 @@ class Game:
             if pygame.event.get(pygame.QUIT) or pygame.key.get_pressed()[pygame.K_ESCAPE]:
                 # end right now
                 # this breaks out of the while loop
-                end_time = frame_start_time
+                self.end_time = frame_start_time
 
             # clear everything
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
@@ -284,7 +300,8 @@ class Game:
                 camera_pos = self.spectator.pos
                 camera_out = self.spectator.out
             else:
-                shapes.HeadlessTank.update(self.this_player)
+                if self.this_player.alive:
+                    shapes.HeadlessTank.update(self.this_player)
                 camera_pos = np.array((self.this_player.pos[0], constants.CAMERA_HEIGHT, self.this_player.pos[2]))
                 camera_out = self.this_player.tout
             gluLookAt(
@@ -295,7 +312,7 @@ class Game:
                 # up
                 *constants.UP
             )
-            if not hasattr(self, "spectator"):
+            if self.this_player.alive:
                 self.this_player.gl_update()
 
             for shape in self.groups.update_list:

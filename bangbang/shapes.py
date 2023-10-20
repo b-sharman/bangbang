@@ -703,7 +703,7 @@ class Tree(Shape, constants.Tree):
 class VictoryBanner(constants.VictoryBanner):
     """A cute little victory banner when you win."""
 
-    def __init__(self, screen):
+    def __init__(self, screen: tuple[int]) -> None:
         # generate texture
         glEnable(GL_TEXTURE_2D)
         self.texture = glGenTextures(1)
@@ -724,17 +724,17 @@ class VictoryBanner(constants.VictoryBanner):
         )
         glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST)
         glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST)
+        glDisable(GL_TEXTURE_2D)
 
+        self.alive = True
         self.spawn_time = time.time()
         self.screen = screen
 
     def update(self):
-        """Draw the text overlay. I stole 99% of this class from Astrocrash."""
-        if current_time := time.time() < self.spawn_time + self.ZOOM_DURATION:
+        if (current_time := time.time()) < self.spawn_time + self.ZOOM_DURATION:
             zoomscale = max(
-                self.FINAL_SCALE,
-                self.DIFF_SCALE
-                * ((current_time - self.spawn_time) / self.ZOOM_DURATION),
+                VictoryBanner.FINAL_SCALE,
+                VictoryBanner.ZOOM_SCALE * (1 - ((current_time - self.spawn_time) / VictoryBanner.ZOOM_DURATION)),
             )
         else:
             zoomscale = 1
@@ -765,14 +765,17 @@ class VictoryBanner(constants.VictoryBanner):
         # draw the model
         glColor(1.0, 1.0, 1.0)  # ?
         glDisable(GL_LIGHTING)
+        glEnable(GL_TEXTURE_2D)
         glBindTexture(GL_TEXTURE_2D, self.texture)
+
         glBegin(GL_QUADS)
         for pt, coord in zip(pts, ((0.0, 0.0), (0.0, 1.0), (1.0, 1.0), (1.0, 0.0))):
             glTexCoord2f(*coord)
             glVertex(pt)
         glEnd()
-        glEnable(GL_LIGHTING)
 
+        glDisable(GL_TEXTURE_2D)
+        glEnable(GL_LIGHTING)
         glDisable(GL_BLEND)
         glPopMatrix()
 

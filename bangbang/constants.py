@@ -30,6 +30,8 @@ VERSION = "1.3.0a"
 
 # how often to send keypresses to the server
 INPUT_CHECK_WAIT = 0.005  # s
+# how long to keep the window alive after someone has won
+END_TIME = 3  # s
 
 # which way is up? I guess I chose the Y dimension for whatever reason
 UP = np.array((0, 1, 0), dtype=float)
@@ -116,7 +118,6 @@ class VictoryBanner:
     ZOOM_DURATION = 0.3  # s
     # scale of the banner at the beginning of the animation
     ZOOM_SCALE = 20.0  # at the beginning
-    DIFF_SCALE = FINAL_SCALE - ZOOM_SCALE
 
 
 class Tank:

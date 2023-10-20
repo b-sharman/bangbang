@@ -91,7 +91,7 @@ class ServerNetwork:
         # disconnect and rejoin
         self.current_id = -1
 
-    async def initialize(self, start_func: Coroutine) -> None:
+    async def initialize(self, start_func: Coroutine, end_event: asyncio.Event) -> None:
         """Code that should go in __init__ but needs to be awaited."""
         async with websockets.serve(
             self.handle_new_connection,
@@ -102,7 +102,8 @@ class ServerNetwork:
             ping_timeout=10,
         ) as server:
             await asyncio.create_task(start_func())
-            await asyncio.Future()  # run forever
+            # wait until end_event is set
+            await end_event.wait()
 
     def get_next_id(self) -> int:
         """Return a unique integer ID for the next connected client."""
