@@ -138,15 +138,19 @@ class HeadlessTank(Shape, constants.Tank):
         self.snapping_back = False
         self.turning_back = False
 
-        self.hits_left: int = self.HITS_TO_DIE  # how many more hits before dead?
+        self.health: int = Tank.INITIAL_HEALTH  # how many more hits before dead?
         self.speed = 0.0  # m / s, I hope
 
         self.actions: set[constants.Action] = set()
 
     def recv_hit(self, damage: int) -> None:
-        """Decrement the tank health by damage."""
-        self.hits_left -= damage
-        if self.hits_left <= 0:
+        """
+        Decrement the tank health by damage.
+
+        Calls die() if this reduces the health to a non-positive number.
+        """
+        self.health -= damage
+        if self.health <= 0:
             self.die()
 
     def snap_logic(self, target_angle, approaching_angle, incr):
@@ -267,7 +271,7 @@ class HeadlessTank(Shape, constants.Tank):
             "actions": tuple(self.actions),
             "bangle": self.bangle,
             "color": self.color,
-            "hits_left": self.hits_left,
+            "health": self.health,
             "name": self.name,
             "pos": tuple(self.pos),
             "speed": self.speed,
@@ -404,7 +408,7 @@ class LifeBar(constants.LifeBar):
         """Draw the LifeBar overlay."""
         glPushMatrix()
         glLoadIdentity()
-        glCallList(self.gllists[self.tank.hits_left])
+        glCallList(self.gllists[self.tank.health])
         glPopMatrix()
 
 
@@ -644,7 +648,7 @@ class Tank(HeadlessTank):
             state["actions"] = set(state["actions"])
         if "pos" in state:
             state["pos"] = np.array(state["pos"])
-        if "hits_left" in state and state["hits_left"] <= 0:
+        if "health" in state and state["health"] <= 0:
             self.die()
             self.game.make_tank_explosion(self.pos, self.color)
         self.__dict__.update(state)

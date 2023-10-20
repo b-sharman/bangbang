@@ -119,7 +119,7 @@ class Game:
                 else:
                     num_alive = len(tuple(t for t in self.groups.tanks.values() if t.alive))
 
-                    # Tank.update_state() calls die() if hits_left <= 0
+                    # Tank.update_state() calls die() if health <= 0
                     # if this player has died
                     # and there are at least two players left
                     if message["id"] == self.player_id and not self.this_player.alive and num_alive >= 2:
