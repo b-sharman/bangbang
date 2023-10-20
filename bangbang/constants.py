@@ -138,9 +138,8 @@ class Tank:
     MAX_SPEED = 10.0  # m/s
     MIN_SPEED = -4.0  # m/s
 
-    # how many shell hits before dead?
-    # TODO: rename this since a single mine hit does two damage
-    HITS_TO_DIE = 5
+    # how much damage can the tank withstand before being destroyed?
+    INITIAL_HEALTH = 5
 
     # for collisions
     RADIUS = 4  # m
