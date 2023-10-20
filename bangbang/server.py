@@ -256,7 +256,7 @@ class Server:
     ]:
         """
         Returns ground half width and tank states.
-        Sets self.self.hill_poses and self.self.tree_poses.
+        Sets self.hill_poses and self.tree_poses.
         """
         ground_area = constants.AREA_PER_PLAYER * len(self.server.clients)
         # half the width of the ground
