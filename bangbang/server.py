@@ -64,11 +64,12 @@ class Tank(HeadlessTank):
 
 class Server:
     def __init__(self) -> None:
+        self.end_event = asyncio.Event()
         self.server = server_network.ServerNetwork(self)
 
     async def initialize(self) -> None:
         """Code that should go in __init__ but needs to be awaited."""
-        await self.server.initialize(self.listen_for_start)
+        await self.server.initialize(self.listen_for_start, self.end_event)
 
     def collisions(self) -> None:
         """Check for and handle all shape collisions."""
@@ -222,7 +223,8 @@ class Server:
         )
 
     async def send_updates(self) -> None:
-        while True:
+        end_time = None
+        while end_time is None or time.time() < end_time:
             self.collisions()
             # TODO: maybe self.tanks should be list[tuple[int, Tank]] instead of dict[int, Tank]?
             for client_id, tank in self.tanks.items():
@@ -246,8 +248,17 @@ class Server:
             self.mines = [m for m in self.mines if m.alive]
             self.shells = [s for s in self.shells if s.alive]
 
+            # check for a winner
+            if len(self.tanks) == 1 and not hasattr(self, "winner"):
+                self.winner = tuple(self.tanks.values())[0]
+                print(f"{self.winner.name} ({self.winner.client_id}) won")
+                end_time = time.time() + constants.END_TIME
+
             # allow other coroutines (including networking) to take place
             await asyncio.sleep(0)
+
+        # after we exit the while loop, we must exit the whole program
+        self.end_event.set()
 
     def setup_env(
         self,
