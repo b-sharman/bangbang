@@ -226,8 +226,6 @@ class Game:
         # make the sky blue
         glClearColor(0.25, 0.89, 0.92, 1.0)
 
-        # TODO: no special group is needed for hills
-        self.groups.hills = [shapes.Hill(pos) for pos in self.hill_poses]
         self.groups.trees = [shapes.Tree(pos) for pos in self.tree_poses]
         self.groups.tanks = dict()
         for client_id, state in self.initial_states:
@@ -242,7 +240,7 @@ class Game:
         self.lifebar = shapes.LifeBar(self.groups.tanks[self.player_id], SCR)
         self.reloadingbar = shapes.ReloadingBar(SCR[0])
 
-        self.groups.update_list = [ground] + self.groups.hills + self.groups.trees + [t for t in self.groups.tanks.values() if t.client_id != self.player_id]
+        self.groups.update_list = [ground] + [shapes.Hill(pos) for pos in self.hill_poses] + self.groups.trees + [t for t in self.groups.tanks.values() if t.client_id != self.player_id]
 
         # start listening for keyboard input
         # self.tg is defined in initialize
