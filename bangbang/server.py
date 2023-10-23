@@ -230,7 +230,6 @@ class Server:
             for client_id, tank in self.tanks.items():
                 # tank.update() returns whether a network update is necessary
                 if tank.update():
-                    print(f"sending update for tank {client_id}")
                     self.server.message_all(
                         {
                             "type": constants.Msg.APPROVE,
