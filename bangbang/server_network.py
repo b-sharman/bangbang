@@ -105,6 +105,9 @@ class ServerNetwork:
             # wait until end_event is set
             await end_event.wait()
 
+    def end_game(self) -> None:
+        self.game_running = False
+
     def get_next_id(self) -> int:
         """Return a unique integer ID for the next connected client."""
         self.current_id += 1
@@ -117,7 +120,7 @@ class ServerNetwork:
         # prevent new clients from connecting if the game has already started
         if self.game_running:
             await ws.close()
-            logging.info("rejected a player because the game has already started")
+            print("rejected a player because the game has already started")
             return
 
         async with asyncio.TaskGroup() as tg:

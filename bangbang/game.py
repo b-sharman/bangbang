@@ -172,6 +172,10 @@ class Game:
                 # allow the main game loop to start
                 self.start_event.set()
 
+            case constants.Msg.QUIT:
+                print("Server sent quit signal")
+                self.end_time = time.time()
+
     def initialize_graphics(self):
         """
         Set up the pygame and OpenGL environments and generate some display lists.
