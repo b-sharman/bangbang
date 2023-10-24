@@ -26,6 +26,8 @@ OVERLAY_DISTANCE = 0.001  # m
 # network constants
 PORT = 4320
 SERVER_START_KEYWORD = "start"
+SERVER_QUIT_KEYWORD = "quit"
+SERVER_INSTRUCTIONS = f"Type '{SERVER_START_KEYWORD}' at any time to start the game.\nType '{SERVER_QUIT_KEYWORD}' to quit."
 VERSION = "1.3.0a"
 
 # how often to send keypresses to the server
@@ -84,7 +86,7 @@ class ReloadingBar:
 class Shell:
     # how many hits does this weapon deal to a Tank upon contact?
     DAMAGE = 1
-    RELOAD_TIME = 10  # s
+    RELOAD_TIME = 0.1  # s
     HILL_TIME = 3  # s
     SPEED = 100.0  # m/s
 
@@ -160,6 +162,7 @@ class Msg(enum.IntEnum):
     REQUEST = enum.auto()  # client requests server to move, shoot, etc.
     SHELL = enum.auto()    # special APPROVE for shell firing
     START = enum.auto()    # game starts
+    QUIT = enum.auto()     # force-quit game while running
 
 
 @enum.unique

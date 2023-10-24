@@ -144,61 +144,41 @@ class Server:
         # be used for Tank.actions
         self.tanks[client_id].update_actions(set(actions))
 
-    async def listen_for_start(self) -> None:
+    async def input_loop(self) -> None:
         """Start the game upon receiving proper user input."""
-        print(f"Type '{constants.SERVER_START_KEYWORD}' at any time to start the game.")
-
         output = None
-        while output != constants.SERVER_START_KEYWORD:
+        while output != constants.SERVER_START_KEYWORD and output != constants.SERVER_QUIT_KEYWORD:
             output = await aioconsole.ainput()
-            # how many players have not submitted their names yet?
-            # I think this should be faster than list comp. in terms of number of
-            # iterations and memory required
-            nameless_count = 0
-            for c in self.server.clients:
-                # adds 1 to nameless count if the name is None
-                nameless_count += c.name is None
-            if nameless_count > 0:
-                # cannot start until all players have submitted names
-                print(
-                    f"Cannot start; {nameless_count} {'players have' if nameless_count > 1 else 'player has'} not submitted their name"
-                )
-                # do not exit the while loop
-                output = None
+        match output:
+            case constants.SERVER_START_KEYWORD if not self.server.game_running:
+                # how many players have not submitted their names yet?
+                # I think this should be faster than list comp. in terms of number of
+                # iterations and memory required
+                nameless_count = 0
+                for c in self.server.clients:
+                    # adds 1 to nameless count if the name is None
+                    nameless_count += c.name is None
+                if nameless_count > 0:
+                    # cannot start until all players have submitted names
+                    print(
+                        f"Cannot start; {nameless_count} {'players have' if nameless_count > 1 else 'player has'} not submitted their name"
+                    )
+                else:
+                    asyncio.create_task(self.start_game())
 
-        states = self.setup_env()
-        # Tanks indexed by client_id
-        self.tanks: dict[int, Tank] = {}
-        for client_id, state in states:
-            self.tanks[client_id] = Tank(
-                state["angle"],
-                client_id,
-                state["color"],
-                self.ground_hw,
-                state["name"],
-                state["pos"],
-                self,
-            )
-        self.mines: list[HeadlessMine] = []
-        self.shells: list[HeadlessShell] = []
+            case constants.SERVER_QUIT_KEYWORD if not self.server.game_running:
+                self.end_event.set()
 
-        # inform the network server that the game has started
-        self.server.start_game()
+            case constants.SERVER_QUIT_KEYWORD:
+                self.server.message_all({"type": constants.Msg.QUIT})
+                self.server.end_game()
+                print(f"Type '{constants.SERVER_QUIT_KEYWORD}' again to exit or '{constants.SERVER_START_KEYWORD}' to start another game.")
 
-        # broadcast a START message
-        self.server.message_all(
-            {
-                "type": constants.Msg.START,
-                "states": [(client_id, t.state) for client_id, t in self.tanks.items()],
-                "ground_hw": self.ground_hw,
-                "hill_poses": self.hill_poses,
-                "tree_poses": self.tree_poses,
-            }
-        )
-
-        asyncio.create_task(self.send_updates())
-
-        print("The game has started!")
+    async def listen_for_start(self) -> None:
+        """Start the input handler function."""
+        print(constants.SERVER_INSTRUCTIONS)
+        while not self.end_event.is_set():
+            await self.input_loop()
 
     def make_mine(self, client_id: int, pos: np.ndarray) -> None:
         self.mines.append(HeadlessMine(client_id, pos))
@@ -255,9 +235,6 @@ class Server:
 
             # allow other coroutines (including networking) to take place
             await asyncio.sleep(0)
-
-        # after we exit the while loop, we must exit the whole program
-        self.end_event.set()
 
     def setup_env(
         self,
@@ -366,6 +343,49 @@ class Server:
         ]
 
         return states
+
+    async def start_game(self):
+        states = self.setup_env()
+        # Tanks indexed by client_id
+        self.tanks: dict[int, Tank] = {}
+        for client_id, state in states:
+            self.tanks[client_id] = Tank(
+                state["angle"],
+                client_id,
+                state["color"],
+                self.ground_hw,
+                state["name"],
+                state["pos"],
+                self,
+            )
+        self.mines: list[HeadlessMine] = []
+        self.shells: list[HeadlessShell] = []
+
+        # inform the network server that the game has started
+        self.server.start_game()
+
+        # broadcast a START message
+        self.server.message_all(
+            {
+                "type": constants.Msg.START,
+                "states": [(client_id, t.state) for client_id, t in self.tanks.items()],
+                "ground_hw": self.ground_hw,
+                "hill_poses": self.hill_poses,
+                "tree_poses": self.tree_poses,
+            }
+        )
+
+        print("The game has started!")
+
+        # this will block until the game is over
+        await self.send_updates()
+
+        # the game is over; make the server allow new connections again
+        self.server.end_game()
+        # existence of the winner attribute is used in victory logic
+        if hasattr(self, "winner"):
+            del self.winner
+        print(constants.SERVER_INSTRUCTIONS)
 
 
 async def main() -> None:
