@@ -140,7 +140,7 @@ class Server:
 
     def handle_request(self, client_id, actions) -> None:
         """Handle a message of type constants.Msg.REQUEST."""
-        # Isn't it expensive to make new sets? Perhaps a new datatype should
+        # TODO: Isn't it expensive to make new sets? Perhaps a new datatype should
         # be used for Tank.actions
         self.tanks[client_id].update_actions(set(actions))
 
@@ -206,7 +206,6 @@ class Server:
         end_time = None
         while end_time is None or time.time() < end_time:
             self.collisions()
-            # TODO: maybe self.tanks should be list[tuple[int, Tank]] instead of dict[int, Tank]?
             for client_id, tank in self.tanks.items():
                 # tank.update() returns whether a network update is necessary
                 if tank.update():
