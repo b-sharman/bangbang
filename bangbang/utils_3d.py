@@ -68,7 +68,6 @@ def read_obj_file(filename: str):
 
     for line in file_lines:
         line = line.strip()
-        # TODO: convert the following to match-case syntax
         # we can't say 'if line[:1] == "v"' because there's also going to be vn's
         if line[:2] == "v ":
             coordinates = line.split()[1:]  # we have to remove the v from the list

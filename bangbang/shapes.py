@@ -182,8 +182,6 @@ class HeadlessTank(Shape, constants.Tank):
         ip_bangle = 0
         ip_tangle = 0
 
-        # TODO: ask some knowledgeable folks whether a match-case pattern would be more
-        # appropriate here
         if constants.Action.ACCEL in self.actions:
             self.speed = min(self.speed + self.ACC * delta, self.MAX_SPEED)
 

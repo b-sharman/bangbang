@@ -251,10 +251,6 @@ class Game:
         input_handler = PlayerInputHandler(self)
         self.input_handler_task = self.tg.create_task(input_handler.run())
 
-        # TODO: implement a reloading timer for dropping mines
-        # It should probably not be implemented here in the main loop, but that's where
-        # this comment is because it used to be implemented here
-
     def make_mine_explosion(self, pos, color):
         self.groups.update_list.append(shapes.MineExplosion(pos, color))
 
