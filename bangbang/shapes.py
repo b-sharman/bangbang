@@ -732,6 +732,12 @@ class VictoryBanner(constants.VictoryBanner):
         self.spawn_time = time.time()
         self.screen = screen
 
+        self.half_width = int(self.screen[0] / 2)
+        self.half_height = int(self.screen[1] / 2)
+
+        self.half_texwidth = int(self.width / 2)
+        self.half_texheight = int(self.height / 2)
+
     def update(self):
         if (current_time := time.time()) < self.spawn_time + self.ZOOM_DURATION:
             zoomscale = max(
@@ -744,19 +750,15 @@ class VictoryBanner(constants.VictoryBanner):
         glPushMatrix()
         glLoadIdentity()
 
-        # TODO: some of these calculations can be moved from draw() to __init__()
-        half_width = int(self.screen[0] / 2)
-        half_height = int(self.screen[1] / 2)
-
-        half_texwidth = int(self.width / 2) * zoomscale
-        half_texheight = int(self.height / 2) * zoomscale
+        half_texwidth = self.half_texwidth * zoomscale
+        half_texheight = self.half_texheight * zoomscale
 
         pts = utils_3d.window2view(
             [
-                ((half_width - half_texwidth), (half_height - half_texheight)),
-                ((half_width - half_texwidth), (half_height + half_texheight)),
-                ((half_width + half_texwidth), (half_height + half_texheight)),
-                ((half_width + half_texwidth), (half_height - half_texheight)),
+                ((self.half_width - half_texwidth), (self.half_height - half_texheight)),
+                ((self.half_width - half_texwidth), (self.half_height + half_texheight)),
+                ((self.half_width + half_texwidth), (self.half_height + half_texheight)),
+                ((self.half_width + half_texwidth), (self.half_height - half_texheight)),
             ]
         )
 
