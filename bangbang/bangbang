@@ -59,7 +59,10 @@ def main():
         print(
             "Warning: Bang Bang does not support non-Xorg environments (e.g. Wayland)."
         )
-    asyncio.run(game.main(args.host, args.no_music, args.debug))
+    try:
+        asyncio.run(game.main(args.host, args.no_music, args.debug))
+    except KeyboardInterrupt:
+        pass
 
 
 if __name__ == "__main__":
