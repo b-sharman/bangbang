@@ -101,6 +101,7 @@ class ServerNetwork:
             ping_interval=5,
             ping_timeout=10,
         ) as server:
+            print(f"Server started on {self.ip}:{constants.PORT}")
             await asyncio.create_task(start_func())
             # wait until end_event is set
             await end_event.wait()
