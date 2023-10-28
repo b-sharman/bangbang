@@ -135,9 +135,7 @@ class Game:
                         # if this player is the winning player
                         # and we have not already made a victory banner
                         if self.this_player.alive and self.end_time is None:
-                            self.groups.update_list.append(
-                                shapes.VictoryBanner(pygame.display.get_window_size())
-                            )
+                            self.victory_banner = shapes.VictoryBanner(pygame.display.get_window_size())
 
                         # end the game in END_TIME seconds
                         self.end_time = time.time() + constants.END_TIME
@@ -317,6 +315,8 @@ class Game:
                 shape.update()
             # overlays must be updated last to render correctly
             self.lifebar.update()
+            if hasattr(self, "victory_banner"):
+                self.victory_banner.update()
             self.reloadingbar.update()
 
             # I think this is a little slower than list.remove() because a whole new

@@ -126,13 +126,13 @@ def setup_explosion(no_explosion_frames, no_mine_frames) -> tuple[list["gllist"]
     return (base_gllists, turret_gllists, mine_gllists)
 
 
-def window2view(pts: list[tuple[float]]) -> list[tuple[float]]:
+def window2view(pts: list[tuple[float]], distance=constants.OVERLAY_DISTANCE) -> list[tuple[float]]:
     """Convert window coordinates to 3D coordinates."""
     return [
         gluUnProject(
             pt[0],
             pt[1],
-            constants.OVERLAY_DISTANCE,
+            distance,
             glGetDoublev(GL_MODELVIEW_MATRIX),
             glGetDoublev(GL_PROJECTION_MATRIX),
             glGetIntegerv(GL_VIEWPORT)
