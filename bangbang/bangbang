@@ -24,6 +24,13 @@ def main():
         action="store_true",
         default=False,
     )
+    parser.add_argument(
+        "-d",
+        "--debug",
+        help="Print debugging information to the console",
+        action="store_true",
+        default=False,
+        )
 
     args = parser.parse_args()
 
@@ -52,7 +59,7 @@ def main():
         print(
             "Warning: Bang Bang does not support non-Xorg environments (e.g. Wayland)."
         )
-    asyncio.run(game.main(args.host, args.no_music))
+    asyncio.run(game.main(args.host, args.no_music, args.debug))
 
 
 if __name__ == "__main__":

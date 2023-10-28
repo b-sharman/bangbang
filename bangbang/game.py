@@ -33,7 +33,7 @@ pygame.init()
 
 
 class Game:
-    def __init__(self, no_music) -> None:
+    def __init__(self, no_music: bool, debug: bool) -> None:
         self.client = client.Client(self)
 
         # used to block opening the window until the game has started
@@ -55,6 +55,7 @@ class Game:
         self.groups = types.SimpleNamespace()
 
         self.no_music = no_music
+        self.debug = debug
 
     # TODO: replace the initialize methods with factory methods
     async def initialize(self, ip: str) -> None:
@@ -80,6 +81,7 @@ class Game:
             pygame.quit()
 
     async def assign_name(self) -> None:
+        # TODO: add input validation - no duplicate or empty names
         name = await aioconsole.ainput("Enter your name: ")
         print("Waiting for the game to start...")
         await self.client.greet(name)
@@ -182,8 +184,10 @@ class Game:
         but needs to be done before the main loop can start.
         """
         # initialize pygame to display OpenGL
-        # screen = pygame.display.set_mode(flags=OPENGL | DOUBLEBUF | FULLSCREEN | HWSURFACE)
-        screen = pygame.display.set_mode((640, 480), flags=OPENGL | DOUBLEBUF | HWSURFACE)
+        if self.debug:
+            screen = pygame.display.set_mode((640, 480), flags=OPENGL | DOUBLEBUF | HWSURFACE)
+        else:
+            screen = pygame.display.set_mode(flags=OPENGL | DOUBLEBUF | FULLSCREEN | HWSURFACE)
         SCR = (screen.get_width(), screen.get_height())
 
         # hide the mouse
@@ -377,16 +381,20 @@ class PlayerInputHandler:
                 break
 
 
-async def main(host, no_music):
+async def main(host, no_music, debug):
     # set up logging
     logger = logging.getLogger("websockets")
-    logger.setLevel(logging.INFO)
-    logging.root.setLevel(logging.DEBUG)
+    if debug:
+        logger.setLevel(logging.INFO)
+        logging.root.setLevel(logging.DEBUG)
+    else:
+        logger.setLevel(logging.WARNING)
+        logging.root.setLevel(logging.WARNING)
     logger.addHandler(logging.StreamHandler())
 
     print("Welcome to Bang Bang " + constants.VERSION)
 
-    game = Game(no_music)
+    game = Game(no_music, debug)
     try:
         await game.initialize(host)
     except (socket.gaierror, OSError):

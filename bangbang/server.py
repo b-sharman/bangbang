@@ -6,6 +6,7 @@ import logging
 import random
 import time
 from typing import Any
+import sys
 
 import aioconsole
 import numpy as np
@@ -63,9 +64,10 @@ class Tank(HeadlessTank):
 
 
 class Server:
-    def __init__(self) -> None:
+    def __init__(self, debug: bool) -> None:
         self.end_event = asyncio.Event()
         self.server = server_network.ServerNetwork(self)
+        self.debug = debug
 
     async def initialize(self) -> None:
         """Code that should go in __init__ but needs to be awaited."""
@@ -85,7 +87,6 @@ class Server:
                     # TODO: make some sort of network signal to tell clients to play a "tank1 collide" sound
 
                     # move the tanks away from each other
-                    print(f"tank {tank1.client_id} hit tank {tank2.client_id}")
                     away = utils_3d.normalize(tank1.pos - tank2.pos) * constants.Tank.COLLISION_SPRINGBACK
                     tank1.pos += away
                     tank2.pos -= away
@@ -99,7 +100,6 @@ class Server:
             # tank vs. hill
             for tank in self.tanks.values():
                 if collisions.collide_hill_tank(hill_pos, tank.pos, tank.bout):
-                    print("tank hit hill")
                     # back up the tank away from the hill so they aren't permanently stuck
                     tank.pos += utils_3d.normalize(tank.pos - hill_pos) * constants.Hill.COLLIDE_DIST
                     tank.speed = 0.0
@@ -111,20 +111,17 @@ class Server:
             #   B) avoid the need for shells to have unique IDs
             for shell in self.shells:
                 if collisions.collide_hill(hill_pos, shell.pos):
-                    print("shell hit hill")
                     shell.die()
 
         for shell in self.shells:
             # remove shells exiting the playing area
             if collisions.collide_shell_world(shell.pos, self.ground_hw):
-                print("shell hit world")
                 shell.die()
                 break
 
             # handle tank-shell collisions
             for tank in self.tanks.values():
                 if tank.client_id != shell.client_id and collisions.collide_tank(tank.pos, np.array((shell.pos[0], 0.0, shell.pos[2])), tank.bout):
-                    print(f"shell hit tank {tank.client_id}")
                     tank.recv_hit(constants.Shell.DAMAGE)
                     tank.set_needs_update()
                     shell.die()
@@ -133,7 +130,6 @@ class Server:
         for mine in self.mines:
             for tank in self.tanks.values():
                 if tank.client_id != mine.client_id and collisions.collide_tank_mine(tank.pos, mine.pos, tank.bout):
-                    print(f"mine hit tank {tank.client_id}")
                     tank.recv_hit(constants.Mine.DAMAGE)
                     tank.set_needs_update()
                     mine.die()
@@ -151,19 +147,27 @@ class Server:
             output = await aioconsole.ainput()
         match output:
             case constants.SERVER_START_KEYWORD if not self.server.game_running:
-                # how many players have not submitted their names yet?
-                # I think this should be faster than list comp. in terms of number of
-                # iterations and memory required
-                nameless_count = 0
-                for c in self.server.clients:
-                    # adds 1 to nameless count if the name is None
-                    nameless_count += c.name is None
-                if nameless_count > 0:
-                    # cannot start until all players have submitted names
-                    print(
-                        f"Cannot start; {nameless_count} {'players have' if nameless_count > 1 else 'player has'} not submitted their name"
-                    )
-                else:
+                # It is always OK to start in debug mode
+                can_start = self.debug
+                if not self.debug:
+                    if len(self.server.clients) < 2:
+                        print("At least two players must join before the game can start")
+                    else:
+                        # how many players have not submitted their names yet?
+                        # I think this should be faster than list comp. in terms of number of
+                        # iterations and memory required
+                        nameless_count = 0
+                        for c in self.server.clients:
+                            # adds 1 to nameless count if the name is None
+                            nameless_count += c.name is None
+                        if nameless_count > 0:
+                            # cannot start until all players have submitted names
+                            print(
+                                f"Cannot start; {nameless_count} {'players have' if nameless_count > 1 else 'player has'} not submitted their name"
+                            )
+                        else:
+                            can_start = True
+                if can_start:
                     asyncio.create_task(self.start_game())
 
             case constants.SERVER_QUIT_KEYWORD if not self.server.game_running:
@@ -172,7 +176,7 @@ class Server:
             case constants.SERVER_QUIT_KEYWORD:
                 self.server.message_all({"type": constants.Msg.QUIT})
                 self.server.end_game()
-                print(f"Type '{constants.SERVER_QUIT_KEYWORD}' again to exit or '{constants.SERVER_START_KEYWORD}' to start another game.")
+                print(f"\nType '{constants.SERVER_QUIT_KEYWORD}' again to exit or '{constants.SERVER_START_KEYWORD}' to start another game.")
 
     async def listen_for_start(self) -> None:
         """Start the input handler function."""
@@ -229,7 +233,11 @@ class Server:
             # check for a winner
             if len(self.tanks) == 1 and not hasattr(self, "winner"):
                 self.winner = tuple(self.tanks.values())[0]
-                print(f"{self.winner.name} ({self.winner.client_id}) won")
+                win_message = self.winner.name
+                if self.debug:
+                    win_message += f" ({self.winner.client_id})"
+                win_message += " won"
+                print(win_message)
                 end_time = time.time() + constants.END_TIME
 
             # allow other coroutines (including networking) to take place
@@ -387,15 +395,21 @@ class Server:
         print(constants.SERVER_INSTRUCTIONS)
 
 
-async def main() -> None:
-    server = Server()
+async def main(debug) -> None:
+    server = Server(debug)
     await server.initialize()
 
 
 if __name__ == "__main__":
+    debug = "-d" in sys.argv or "--debug" in sys.argv
     logger = logging.getLogger("websockets")
-    logger.setLevel(logging.INFO)
-    logging.root.setLevel(logging.DEBUG)
+    if debug:
+        logger.setLevel(logging.INFO)
+        logging.root.setLevel(logging.DEBUG)
+        constants.Shell.set_debug_reload_time()
+    else:
+        logger.setLevel(logging.WARNING)
+        logging.root.setLevel(logging.WARNING)
     logger.addHandler(logging.StreamHandler())
 
-    asyncio.run(main())
+    asyncio.run(main(debug))
