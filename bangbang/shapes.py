@@ -759,7 +759,9 @@ class VictoryBanner(constants.VictoryBanner):
                 ((self.half_width - half_texwidth), (self.half_height + half_texheight)),
                 ((self.half_width + half_texwidth), (self.half_height + half_texheight)),
                 ((self.half_width + half_texwidth), (self.half_height - half_texheight)),
-            ]
+            ],
+            # draw the victory banner in front of other overlays
+            distance=constants.OVERLAY_DISTANCE/2,
         )
 
         # turn on alpha blending
