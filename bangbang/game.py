@@ -177,7 +177,7 @@ class Game:
                 print("Server sent quit signal")
                 self.end_time = time.time()
 
-    def initialize_graphics(self):
+    def initialize_graphics(self) -> None:
         """
         Set up the pygame and OpenGL environments and generate some display lists.
 
@@ -254,13 +254,13 @@ class Game:
         input_handler = PlayerInputHandler(self)
         self.input_handler_task = self.tg.create_task(input_handler.run())
 
-    def make_mine_explosion(self, pos, color):
+    def make_mine_explosion(self, pos: tuple, color: tuple) -> None:
         self.groups.update_list.append(shapes.MineExplosion(pos, color))
 
-    def make_tank_explosion(self, pos, color):
+    def make_tank_explosion(self, pos: tuple, color: tuple) -> None:
         self.groups.update_list.append(shapes.Explosion(pos, color))
 
-    async def start_main_loop(self):
+    async def start_main_loop(self) -> None:
         # timestamp of the final frame
         self.end_time = None
 
@@ -382,7 +382,7 @@ class PlayerInputHandler:
                 break
 
 
-async def main(host, no_music, debug):
+async def main(host, no_music, debug) -> None:
     # set up logging
     logger = logging.getLogger("websockets")
     if debug:
