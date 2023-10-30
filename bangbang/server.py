@@ -231,7 +231,7 @@ class Server:
             self.shells = [s for s in self.shells if s.alive]
 
             # check for a winner
-            if len(self.tanks) == 1 and not hasattr(self, "winner"):
+            if not self.debug and len(self.tanks) == 1 and not hasattr(self, "winner"):
                 self.winner = tuple(self.tanks.values())[0]
                 win_message = self.winner.name
                 if self.debug:
