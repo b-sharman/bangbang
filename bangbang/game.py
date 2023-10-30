@@ -87,6 +87,7 @@ class Game:
         await self.client.greet(name)
 
     def collisions(self) -> None:
+        # TODO: shells do not die when colliding with a tank
         # TODO: There's a way to make this average better than O(n^2)
         for shape in self.groups.update_list:
             if isinstance(shape, shapes.Shell) and not shape.collided:
@@ -133,7 +134,7 @@ class Game:
                             self.groups.update_list.append(self.spectator)
 
                     # if only one player remains
-                    if num_alive == 1:
+                    if not self.debug and num_alive == 1:
                         # if this player is the winning player
                         # and we have not already made a victory banner
                         if self.this_player.alive and self.end_time is None:
