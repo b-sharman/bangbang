@@ -9,7 +9,7 @@ import types
 
 import aioconsole
 import numpy as np
-# hides pygame contribute message
+# hide pygame contribute message
 with contextlib.redirect_stdout(None):
     import pygame
     from pygame.constants import *
