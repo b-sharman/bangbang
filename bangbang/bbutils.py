@@ -1,5 +1,3 @@
-# TODO: add type hints to the functions in this file
-
 import json
 import random
 import time

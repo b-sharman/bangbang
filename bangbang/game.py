@@ -111,7 +111,7 @@ class Game:
                 if collisions.collide_tank(tank.pos, tree.pos, tank.bout):
                     tree.fall(tank.bright, tank.speed)
 
-    async def handle_message(self, message: dict) -> None:
+    async def handle_message(self, message: bbutils.Message) -> None:
         """Handle a JSON-loaded dict network message."""
         match message["type"]:
             case constants.Msg.APPROVE:
