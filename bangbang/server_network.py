@@ -89,7 +89,7 @@ class ServerNetwork:
         # the id that will be assigned to the next client
         # can't do something as simple as len(self.clients) because a client might
         # disconnect and rejoin
-        self.current_id = -1
+        self.next_id = -1
 
     async def initialize(self, start_func: Coroutine, end_event: asyncio.Event) -> None:
         """Code that should go in __init__ but needs to be awaited."""
@@ -111,8 +111,8 @@ class ServerNetwork:
 
     def get_next_id(self) -> int:
         """Return a unique integer ID for the next connected client."""
-        self.current_id += 1
-        return self.current_id
+        self.next_id += 1
+        return self.next_id
 
     async def handle_new_connection(
         self, ws: websockets.server.WebSocketServer
