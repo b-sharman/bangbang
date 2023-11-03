@@ -20,7 +20,7 @@ def collide_hill_tank(hill_pos: np.ndarray, tank_pos: np.ndarray, tank_bout: np.
     return False
 
 
-def collide_tank(tank_pos, obj_pos, tank_bout) -> bool:
+def collide_tank(tank_pos: np.ndarray, obj_pos: np.ndarray, tank_bout: np.ndarray) -> bool:
     """Return True if a tank and another object are colliding, False otherwise."""
     for tank_sphere in tank_collision_spheres(tank_pos, tank_bout):
         if utils_3d.mag(tank_sphere - obj_pos) < constants.Tank.RADIUS:
@@ -28,7 +28,7 @@ def collide_tank(tank_pos, obj_pos, tank_bout) -> bool:
     return False
 
 
-def collide_tank_mine(tank_pos, mine_pos, tank_bout) -> bool:
+def collide_tank_mine(tank_pos: np.ndarray, mine_pos: np.ndarray, tank_bout: np.ndarray) -> bool:
     """Return True if a tank and a mine are colliding, False otherwise."""
     for tank_sphere in tank_collision_spheres(tank_pos, tank_bout):
         if utils_3d.mag(tank_sphere - mine_pos) < constants.Tank.RADIUS + constants.Mine.RADIUS:
