@@ -65,7 +65,7 @@ class LifeBar:
 class Mine:
     # time interval between beep noises
     BEEP_INTERVAL = 1  # s
-    LIFETIME = 6  # s
+    LIFETIME = 10  # s
     RELOAD_TIME = 2  # s
 
     DAMAGE = 2
