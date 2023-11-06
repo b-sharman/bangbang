@@ -81,6 +81,7 @@ class Game:
             pygame.quit()
 
     async def assign_name(self) -> None:
+        """Send a GREET message with a user-entered name."""
         # TODO: add input validation - no duplicate or empty names
         name = await aioconsole.ainput("Enter your name: ")
         print("Waiting for the game to start...")
