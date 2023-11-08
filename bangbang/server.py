@@ -69,6 +69,9 @@ class Server:
         self.server = server_network.ServerNetwork(self)
         self.debug = debug
 
+        self.next_mine_id = 0
+        self.next_shell_id = 0
+
     async def initialize(self) -> None:
         """Code that should go in __init__ but needs to be awaited."""
         await self.server.initialize(self.listen_for_start, self.end_event)
@@ -106,17 +109,14 @@ class Server:
                     tank.set_needs_update()
 
             # shell vs. hill
-            # Trust the client to also check for shell-hill collisions to
-            #   A) minimize complexity of the network protocol and
-            #   B) avoid the need for shells to have unique IDs
             for shell in self.shells:
                 if collisions.collide_hill(hill_pos, shell.pos):
-                    shell.die()
+                    self.send_shell_die(shell)
 
         for shell in self.shells:
             # remove shells exiting the playing area
             if collisions.collide_shell_world(shell.pos, self.ground_hw):
-                shell.die()
+                self.send_shell_die(shell)
                 break
 
             # handle tank-shell collisions
@@ -124,15 +124,14 @@ class Server:
                 if tank.client_id != shell.client_id and collisions.collide_tank(tank.pos, np.array((shell.pos[0], 0.0, shell.pos[2])), tank.bout):
                     tank.recv_hit(constants.Shell.DAMAGE)
                     tank.set_needs_update()
-                    shell.die()
-                    # TODO: make some sort of network signal to tell clients to play a "shell hit" sound
+                    self.send_shell_die(shell, False)
 
         for mine in self.mines:
             for tank in self.tanks.values():
                 if tank.client_id != mine.client_id and collisions.collide_tank_mine(tank.pos, mine.pos, tank.bout):
                     tank.recv_hit(constants.Mine.DAMAGE)
                     tank.set_needs_update()
-                    mine.die()
+                    self.send_mine_die(mine)
 
     def handle_request(self, client_id, actions) -> None:
         """Handle a message of type constants.Msg.REQUEST."""
@@ -185,24 +184,48 @@ class Server:
             await self.input_loop()
 
     def make_mine(self, client_id: int, pos: np.ndarray) -> None:
-        self.mines.append(HeadlessMine(client_id, pos))
+        self.mines.append(HeadlessMine(client_id, self.next_mine_id, pos))
         self.server.message_all(
             {
                 "type": constants.Msg.MINE,
                 "id": client_id,
+                "mine_id": self.next_mine_id,
                 "pos": tuple(pos),
             }
         )
+        self.next_mine_id += 1
 
     def make_shell(self, angle: float, client_id: int, out: np.ndarray, pos: np.ndarray) -> None:
-        self.shells.append(HeadlessShell(angle, client_id, out, pos))
+        self.shells.append(HeadlessShell(client_id, self.next_shell_id, angle, out, pos))
         self.server.message_all(
             {
                 "type": constants.Msg.SHELL,
                 "id": client_id,
+                "shell_id": self.next_shell_id,
                 "angle": angle,
                 "out": tuple(out),
                 "pos": tuple(pos),
+            }
+        )
+        self.next_shell_id += 1
+
+    def send_mine_die(self, mine: HeadlessMine) -> None:
+        mine.die()
+        self.server.message_all(
+            {
+                "type": constants.Msg.MINE_DIE,
+                "mine_id": mine.mine_id,
+            }
+        )
+
+
+    def send_shell_die(self, shell: HeadlessShell, explo: bool = True) -> None:
+        shell.die()
+        self.server.message_all(
+            {
+                "type": constants.Msg.SHELL_DIE,
+                "shell_id": shell.shell_id,
+                "explo": explo,
             }
         )
 

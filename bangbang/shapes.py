@@ -1,5 +1,6 @@
 import contextlib
 import time
+from typing import Optional
 
 from OpenGL.GL import *
 import numpy as np
@@ -83,10 +84,11 @@ class Ground(Shape, constants.Ground):
 
 
 class HeadlessMine(Shape, constants.Mine):
-    def __init__(self, client_id: int, pos: Iterable[float]) -> None:
+    def __init__(self, client_id: int, mine_id: int, pos: Iterable[float]) -> None:
         super().__init__()
 
         self.client_id = client_id
+        self.mine_id
         self.pos = tuple(pos)
 
         self.spawn_time = time.time()
@@ -100,7 +102,7 @@ class HeadlessMine(Shape, constants.Mine):
 
 
 class HeadlessShell(Shape, constants.Shell):
-    def __init__(self, angle: float, client_id: int, out: tuple[float], pos: tuple[float]):
+    def __init__(self, client_id: int, shell_id: int, angle: float, out: tuple[float], pos: tuple[float]):
         super().__init__()
 
         # self._clock is initialized in Shape.__init__
@@ -108,15 +110,17 @@ class HeadlessShell(Shape, constants.Shell):
 
         # who shot the shell
         self.client_id = client_id
+        # each shell has its own unique id
+        self.shell_id = shell_id
 
         self.angle = angle
         self.pos = np.array(pos)
         # raise the shell to make it appear like it's exiting the turret
-        self.pos[1] += self.START_HEIGHT
+        self.pos[1] += constants.Shell.START_HEIGHT
         self.out = np.array(out)
 
     def update(self):
-        self.pos += self.out * Shell.SPEED * self.delta_time()
+        self.pos += self.out * constants.Shell.SPEED * self.delta_time()
 
 
 class HeadlessTank(Shape, constants.Tank):
@@ -150,6 +154,7 @@ class HeadlessTank(Shape, constants.Tank):
         Calls die() if this reduces the health to a non-positive number.
         """
         self.health -= damage
+        print(f"{self.client_id} health decremented to {self.health}")
         if self.health <= 0:
             self.die()
 
@@ -414,8 +419,8 @@ class Mine(HeadlessMine):
     BEEP_SOUND = pygame.mixer.Sound("../data/sound/mine.wav")
     EXPLODE_SOUND = pygame.mixer.Sound("../data/sound/mine_explode.wav")
 
-    def __init__(self, game: "game.Game", client_id: int, pos: Iterable[float], color: tuple[float]) -> None:
-        super().__init__(client_id, pos)
+    def __init__(self, game: "game.Game", client_id: int, mine_id: int, pos: Iterable[float], color: tuple[float]) -> None:
+        super().__init__(client_id, mine_id, pos)
 
         if Mine.gllist == "Unknown":
             Mine.gllist = glGenLists(1)
@@ -506,8 +511,8 @@ class Shell(HeadlessShell):
 
     SOUND = pygame.mixer.Sound("../data/sound/shell.wav")
 
-    def __init__(self, angle: float, client_id: int, out: tuple[float], pos: tuple[float]) -> None:
-        super().__init__(angle, client_id, out, pos)
+    def __init__(self, client_id: int, shell_id: int, angle: float, out: tuple[float], pos: tuple[float]) -> None:
+        super().__init__(client_id, shell_id, angle, out, pos)
 
         # make gllists if necessary
         if Shell.gllist == "Unknown":

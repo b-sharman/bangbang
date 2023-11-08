@@ -88,25 +88,7 @@ class Game:
         await self.client.greet(name)
 
     def collisions(self) -> None:
-        # TODO: shells do not die when colliding with a tank
         # TODO: There's a way to make this average better than O(n^2)
-        for shape in self.groups.update_list:
-            if isinstance(shape, shapes.Shell) and not shape.collided:
-                # remove shells colliding with hills
-                for hill_pos in self.hill_poses:
-                    if collisions.collide_hill(hill_pos, shape.pos):
-                        shape.hill()
-
-                # remove shells exiting the playing area
-                if collisions.collide_shell_world(shape.pos, self.ground_hw):
-                    shape.hill()
-
-                # remove shells colliding with tanks
-                for tank in self.groups.tanks.values():
-                    if collisions.collide_tank(shape.pos, tank.pos, tank.bout):
-                        shape.die()
-
-        # tank-tree collisions
         for tree in filter(lambda t: not t.is_falling, self.groups.trees):
             for tank in self.groups.tanks.values():
                 if collisions.collide_tank(tank.pos, tree.pos, tank.bout):
@@ -152,16 +134,32 @@ class Game:
                     shapes.Mine(
                         self,
                         message["id"],
+                        message["mine_id"],
                         message["pos"],
                         self.groups.tanks[message["id"]].color
                     )
                 )
 
+            case constants.Msg.MINE_DIE:
+                for s in self.groups.update_list:
+                    if hasattr(s, "mine_id") and s.mine_id == message["mine_id"]:
+                        s.die()
+
             case constants.Msg.SHELL:
-                shell = shapes.Shell(message["angle"], message["id"], message["out"], message["pos"])
+                shell = shapes.Shell(message["id"], message["shell_id"], message["angle"], message["out"], message["pos"])
                 self.groups.update_list.append(shell)
                 if message["id"] == self.player_id:
                     self.reloadingbar.fire()
+
+            case constants.Msg.SHELL_DIE:
+                # TODO: if the shell died by hitting a tank, play a sound here
+                for s in self.groups.update_list:
+                    if hasattr(s, "shell_id") and s.shell_id == message["shell_id"]:
+                        if message["explo"]:
+                            s.hill()
+                        else:
+                            # no explosion for tank-shell collision
+                            s.die()
 
             case constants.Msg.START:
                 logging.debug("starting")

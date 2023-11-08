@@ -159,14 +159,16 @@ class Tank:
 class Msg(enum.IntEnum):
     """Enum for message types."""
 
-    APPROVE = enum.auto()  # server broadcasts approval to a REQUEST
-    GREET = enum.auto()    # client informs server of name, maybe color, etc.
-    ID = enum.auto()       # server informs client of assigned id
-    MINE = enum.auto()     # special APPROVE for mine firing
-    REQUEST = enum.auto()  # client requests server to move, shoot, etc.
-    SHELL = enum.auto()    # special APPROVE for shell firing
-    START = enum.auto()    # game starts
-    QUIT = enum.auto()     # force-quit game while running
+    APPROVE = enum.auto()    # server broadcasts approval to a REQUEST
+    GREET = enum.auto()      # client informs server of name, maybe color, etc.
+    ID = enum.auto()         # server informs client of assigned id
+    MINE = enum.auto()       # special APPROVE for mine firing
+    MINE_DIE = enum.auto()   # mine collision signal
+    REQUEST = enum.auto()    # client requests server to move, shoot, etc.
+    SHELL = enum.auto()      # special APPROVE for shell firing
+    SHELL_DIE = enum.auto()  # shell collision signal
+    START = enum.auto()      # game starts
+    QUIT = enum.auto()       # force-quit game while running
 
 
 @enum.unique
