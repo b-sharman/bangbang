@@ -44,7 +44,7 @@ def normalize(v: np.ndarray) -> np.ndarray:
     return v / mag(v)
 
 
-def read_obj_file(filename: str):
+def read_obj_file(filename: str) -> tuple[list[list]]:
     """
     Read an obj file and return a list of vertices, faces, and normals.
 
@@ -141,7 +141,7 @@ def window2view(pts: list[tuple[float]], distance=constants.OVERLAY_DISTANCE) ->
     ]
 
 
-def yaw(angle: float, out: np.ndarray, right: np.ndarray):
+def yaw(angle: float, out: np.ndarray, right: np.ndarray) -> np.ndarray:
     """Return new out vector after rotating `angle` degrees."""
     # up fixed, out/right change
     return normalize(
