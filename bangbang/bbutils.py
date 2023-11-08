@@ -76,6 +76,12 @@ def is_message_valid(message: Message) -> None:
                 if must_have not in message:
                     raise ValueError(f"SHELL message does not have {must_have}")
 
+        # SHELL_DIE must have explo, shell_id
+        case constants.Msg.SHELL_DIE:
+            for must_have in ("explo", "shell_id"):
+                if must_have not in message:
+                    raise ValueError(f"SHELL_DIE message does not have {must_have}")
+
         # START must have ...
         case constants.Msg.START:
             for must_have in ("ground_hw", "hill_poses", "tree_poses", "states"):
