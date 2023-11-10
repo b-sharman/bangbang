@@ -40,7 +40,8 @@ def mag(v: np.ndarray) -> np.ndarray:
 def normalize(v: np.ndarray) -> np.ndarray:
     """Return a normalized vector."""
     # return 0 for an array of zeros
-    if np.all(v == 0.0): return v
+    if np.all(v == 0.0):
+        return v
     return v / mag(v)
 
 
@@ -135,7 +136,7 @@ def window2view(pts: list[tuple[float]], distance=constants.OVERLAY_DISTANCE) ->
             distance,
             glGetDoublev(GL_MODELVIEW_MATRIX),
             glGetDoublev(GL_PROJECTION_MATRIX),
-            glGetIntegerv(GL_VIEWPORT)
+            glGetIntegerv(GL_VIEWPORT),
         )
         for pt in pts
     ]
@@ -144,6 +145,4 @@ def window2view(pts: list[tuple[float]], distance=constants.OVERLAY_DISTANCE) ->
 def yaw(angle: float, out: np.ndarray, right: np.ndarray) -> np.ndarray:
     """Return new out vector after rotating `angle` degrees."""
     # up fixed, out/right change
-    return normalize(
-        np.cos(np.radians(angle)) * out + np.sin(np.radians(angle)) * right
-    )
+    return normalize(np.cos(np.radians(angle)) * out + np.sin(np.radians(angle)) * right)

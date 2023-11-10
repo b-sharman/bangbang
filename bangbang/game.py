@@ -9,6 +9,7 @@ import types
 
 import aioconsole
 import numpy as np
+
 # hide pygame contribute message
 with contextlib.redirect_stdout(None):
     import pygame
@@ -106,27 +107,34 @@ class Game:
                 try:
                     self.groups.tanks[message["id"]].update_state(message["state"])
                 except KeyError:
-                    logging.log(logging.DEBUG, f"received APPROVE for player {message['id']} which does not exist")
+                    logging.log(
+                        logging.DEBUG,
+                        f"received APPROVE for player {message['id']} which does not exist",
+                    )
                 else:
                     num_alive = len(tuple(t for t in self.groups.tanks.values() if t.alive))
 
                     # Tank.update_state() calls die() if health <= 0
                     # if this player has died
                     # and there are at least two players left
-                    if message["id"] == self.player_id and not self.this_player.alive and num_alive >= 2:
-                            self.spectator = shapes.Spectator(
-                                self.this_player.pos,
-                                self.this_player.tout,
-                                self.this_player.tangle
-                            )
-                            self.groups.update_list.append(self.spectator)
+                    if (
+                        message["id"] == self.player_id
+                        and not self.this_player.alive
+                        and num_alive >= 2
+                    ):
+                        self.spectator = shapes.Spectator(
+                            self.this_player.pos, self.this_player.tout, self.this_player.tangle
+                        )
+                        self.groups.update_list.append(self.spectator)
 
                     # if only one player remains
                     if not self.debug and num_alive == 1:
                         # if this player is the winning player
                         # and we have not already made a victory banner
                         if self.this_player.alive and self.end_time is None:
-                            self.victory_banner = shapes.VictoryBanner(pygame.display.get_window_size())
+                            self.victory_banner = shapes.VictoryBanner(
+                                pygame.display.get_window_size()
+                            )
 
                         # end the game in END_TIME seconds
                         self.end_time = time.time() + constants.END_TIME
@@ -141,7 +149,7 @@ class Game:
                         message["id"],
                         message["mine_id"],
                         message["pos"],
-                        self.groups.tanks[message["id"]].color
+                        self.groups.tanks[message["id"]].color,
                     )
                 )
 
@@ -151,7 +159,13 @@ class Game:
                         s.die()
 
             case constants.Msg.SHELL:
-                shell = shapes.Shell(message["id"], message["shell_id"], message["angle"], message["out"], message["pos"])
+                shell = shapes.Shell(
+                    message["id"],
+                    message["shell_id"],
+                    message["angle"],
+                    message["out"],
+                    message["pos"],
+                )
                 self.groups.update_list.append(shell)
                 if message["id"] == self.player_id:
                     self.reloadingbar.fire()
@@ -259,7 +273,12 @@ class Game:
         self.lifebar = shapes.LifeBar(self.groups.tanks[self.player_id], SCR)
         self.reloadingbar = shapes.ReloadingBar(SCR[0])
 
-        self.groups.update_list = [ground] + [shapes.Hill(pos) for pos in self.hill_poses] + self.groups.trees + [t for t in self.groups.tanks.values() if t.client_id != self.player_id]
+        self.groups.update_list = (
+            [ground]
+            + [shapes.Hill(pos) for pos in self.hill_poses]
+            + self.groups.trees
+            + [t for t in self.groups.tanks.values() if t.client_id != self.player_id]
+        )
 
         # start listening for keyboard input
         # self.tg is defined in initialize
@@ -315,7 +334,9 @@ class Game:
             else:
                 if self.this_player.alive:
                     shapes.HeadlessTank.update(self.this_player)
-                camera_pos = np.array((self.this_player.pos[0], constants.CAMERA_HEIGHT, self.this_player.pos[2]))
+                camera_pos = np.array(
+                    (self.this_player.pos[0], constants.CAMERA_HEIGHT, self.this_player.pos[2])
+                )
                 camera_out = self.this_player.tout
             gluLookAt(
                 # pos
@@ -323,7 +344,7 @@ class Game:
                 # at
                 *(camera_out + camera_pos),
                 # up
-                *constants.UP
+                *constants.UP,
             )
             if self.this_player.alive:
                 self.this_player.gl_update()
@@ -340,9 +361,7 @@ class Game:
             # linked list has to be built; however, it seems more Pythonic than
             # looping through and calling remove()
             self.groups.tanks = {
-                client_id: tank
-                for client_id, tank in self.groups.tanks.items()
-                if tank.alive
+                client_id: tank for client_id, tank in self.groups.tanks.items() if tank.alive
             }
             self.groups.update_list = [shape for shape in self.groups.update_list if shape.alive]
 
@@ -353,6 +372,7 @@ class Game:
 
             frame_end_time = time.time()
             frame_length = frame_end_time - frame_start_time
+
 
 class PlayerInputHandler:
     """Sends keyboard input to the server."""
@@ -371,12 +391,15 @@ class PlayerInputHandler:
                     action
                     for key_combo, action in constants.KEYMAP
                     # if all the keys in the combo are pressed
-                    if all([pressed[k] for k in key_combo])  
+                    if all([pressed[k] for k in key_combo])
                 ]
                 # corner case: if TURRET_x or BASE_x, then ALL_x cannot be true
                 if constants.Action.TURRET_LEFT in actions or constants.Action.BASE_LEFT in actions:
                     actions.remove(constants.Action.ALL_LEFT)
-                if constants.Action.TURRET_RIGHT in actions or constants.Action.BASE_RIGHT in actions:
+                if (
+                    constants.Action.TURRET_RIGHT in actions
+                    or constants.Action.BASE_RIGHT in actions
+                ):
                     actions.remove(constants.Action.ALL_RIGHT)
                 # corner case: cannot snap back in the presence of ctrl key
                 if constants.Action.TURN_BACK in actions:

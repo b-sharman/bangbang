@@ -21,9 +21,7 @@ def get_local_ip():
         try:
             s.connect(("8.8.8.8", 80))
         except (socket.error, OSError):
-            raise RuntimeError(
-                "Connection didn't work; are you connected to the internet?"
-            )
+            raise RuntimeError("Connection didn't work; are you connected to the internet?")
         else:
             return s.getsockname()[0]
 
@@ -114,9 +112,7 @@ class ServerNetwork:
         self.next_id += 1
         return self.next_id
 
-    async def handle_new_connection(
-        self, ws: websockets.server.WebSocketServer
-    ) -> None:
+    async def handle_new_connection(self, ws: websockets.server.WebSocketServer) -> None:
         """Start server communications with ws and add ws to self.clients."""
         # prevent new clients from connecting if the game has already started
         if self.game_running:
