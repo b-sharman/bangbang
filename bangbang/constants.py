@@ -151,8 +151,8 @@ class Tank:
 
     # for collisions
     RADIUS = 4  # m
-    COLLISION_SPHERE_BACK = 4.625
-    COLLISION_SPHERE_FRONT = 3.75
+    COLLISION_SPHERE_BACK = 4.625  # m
+    COLLISION_SPHERE_FRONT = 3.75  # m
     COLLISION_SPRINGBACK = 5.0  # m
 
 
