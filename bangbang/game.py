@@ -61,10 +61,15 @@ class Game:
     async def initialize(self, ip: str) -> None:
         """Things that can't go in __init__ because they're coros"""
         async with asyncio.TaskGroup() as self.tg:
-            client_task = self.tg.create_task(self.client.start(ip))
+            self.client_task = self.tg.create_task(self.client.start(ip))
 
             # wait until the server sends a start signal
             await self.start_event.wait()
+
+            # if the server force quit the game, then exit
+            # cancelling() works better than cancelled() because it doesn't care who raised the CancelledError
+            if self.client_task.cancelling():
+                return
 
             # Unfortunately, run_in_executor can't be used here because all OpenGL
             # calls have to be run from the same thread. So hopefully it's not a huge
@@ -76,7 +81,7 @@ class Game:
 
             # the following code runs after the main loop terminates
             self.input_handler_task.cancel()
-            client_task.cancel()
+            self.client_task.cancel()
             # start_main_loop() has ended; close the pygame window
             pygame.quit()
 
@@ -173,8 +178,16 @@ class Game:
                 self.start_event.set()
 
             case constants.Msg.QUIT:
-                print("Server sent quit signal")
+                print("\nServer sent quit signal")
                 self.end_time = time.time()
+                # if the server sends QUIT before the window has spawned
+                if self.client.name_task is not None:
+                    self.client.name_task.cancel()
+                self.client_task.cancel()
+                self.start_event.set()
+
+                # release the event loop to allow the cancellations to take place
+                await asyncio.sleep(0)
 
     def initialize_graphics(self) -> None:
         """

@@ -13,6 +13,7 @@ import utils_3d
 class Client:
     def __init__(self, game: "game.Game") -> None:
         self.game = game
+        self.name_task = None
 
     async def greet(self, name: str) -> None:
         """
@@ -32,14 +33,13 @@ class Client:
             f"ws://{ip}:{constants.PORT}", create_protocol=bbutils.BBClientProtocol
         ) as self.ws:
             async with asyncio.TaskGroup() as tg:
-                created_name_task = False
-
                 async for raw_message in self.ws:
                     try:
                         # waits until data is received from the server
                         message = json.loads(raw_message)
                     except websockets.exceptions.ConnectionClosed:
-                        if not created_name_task:
+                        if self.name_task is None:
+                            # TODO: This doesn't seem to trigger as expected
                             print(
                                 "There was an error when trying to connect to the server. This probably means that the game has already started."
                             )
@@ -48,8 +48,7 @@ class Client:
                         exit()
 
                     # placing the following block here guarantees that the "Enter your name:" text will not be displayed if there is a server error
-                    if not created_name_task:
-                        tg.create_task(self.game.assign_name())
-                        created_name_task = True
+                    if self.name_task is None:
+                        self.name_task = tg.create_task(self.game.assign_name())
 
                     await self.game.handle_message(message)

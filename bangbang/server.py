@@ -143,7 +143,13 @@ class Server:
         """Start the game upon receiving proper user input."""
         output = None
         while output != constants.SERVER_START_KEYWORD and output != constants.SERVER_QUIT_KEYWORD:
-            output = await aioconsole.ainput()
+            try:
+                output = await aioconsole.ainput()
+            # send QUIT on KeyboardInterrupt, EOFError
+            except asyncio.CancelledError:
+                self.server.message_all({"type": constants.Msg.QUIT})
+                # pass along the error
+                raise
         match output:
             case constants.SERVER_START_KEYWORD if not self.server.game_running:
                 # It is always OK to start in debug mode
@@ -169,13 +175,13 @@ class Server:
                 if can_start:
                     asyncio.create_task(self.start_game())
 
-            case constants.SERVER_QUIT_KEYWORD if not self.server.game_running:
-                self.end_event.set()
-
             case constants.SERVER_QUIT_KEYWORD:
                 self.server.message_all({"type": constants.Msg.QUIT})
                 self.server.end_game()
-                print(f"\nType '{constants.SERVER_QUIT_KEYWORD}' again to exit or '{constants.SERVER_START_KEYWORD}' to start another game.")
+                if len(self.server.clients) == 0:
+                    self.end_event.set()
+                else:
+                    print(f"\nType '{constants.SERVER_QUIT_KEYWORD}' again to exit or '{constants.SERVER_START_KEYWORD}' to start another game.")
 
     async def listen_for_start(self) -> None:
         """Start the input handler function."""
