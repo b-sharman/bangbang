@@ -2,6 +2,7 @@ import contextlib
 import enum
 
 import numpy as np
+
 # hides pygame contribute message
 with contextlib.redirect_stdout(None):
     from pygame.constants import *
@@ -61,6 +62,7 @@ class Hill:
 class LifeBar:
     MARGIN = 50  # px
     UNIT = 200  # px
+
 
 class Mine:
     # time interval between beep noises

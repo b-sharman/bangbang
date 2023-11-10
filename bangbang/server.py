@@ -21,6 +21,7 @@ import utils_3d
 
 # TODO: add consistent type hinting throughout the whole project
 
+
 class Tank(HeadlessTank):
     def __init__(self, angle, client_id, color, ground_hw, name, pos, server):
         super().__init__(angle, client_id, color, ground_hw, name, pos)
@@ -90,7 +91,10 @@ class Server:
                     # TODO: make some sort of network signal to tell clients to play a "tank1 collide" sound
 
                     # move the tanks away from each other
-                    away = utils_3d.normalize(tank1.pos - tank2.pos) * constants.Tank.COLLISION_SPRINGBACK
+                    away = (
+                        utils_3d.normalize(tank1.pos - tank2.pos)
+                        * constants.Tank.COLLISION_SPRINGBACK
+                    )
                     tank1.pos += away
                     tank2.pos -= away
                     tank1.speed = 0.0
@@ -104,7 +108,9 @@ class Server:
             for tank in self.tanks.values():
                 if collisions.collide_hill_tank(hill_pos, tank.pos, tank.bout):
                     # back up the tank away from the hill so they aren't permanently stuck
-                    tank.pos += utils_3d.normalize(tank.pos - hill_pos) * constants.Hill.COLLIDE_DIST
+                    tank.pos += (
+                        utils_3d.normalize(tank.pos - hill_pos) * constants.Hill.COLLIDE_DIST
+                    )
                     tank.speed = 0.0
                     tank.set_needs_update()
 
@@ -121,14 +127,18 @@ class Server:
 
             # handle tank-shell collisions
             for tank in self.tanks.values():
-                if tank.client_id != shell.client_id and collisions.collide_tank(tank.pos, np.array((shell.pos[0], 0.0, shell.pos[2])), tank.bout):
+                if tank.client_id != shell.client_id and collisions.collide_tank(
+                    tank.pos, np.array((shell.pos[0], 0.0, shell.pos[2])), tank.bout
+                ):
                     tank.recv_hit(constants.Shell.DAMAGE)
                     tank.set_needs_update()
                     self.send_shell_die(shell, False)
 
         for mine in self.mines:
             for tank in self.tanks.values():
-                if tank.client_id != mine.client_id and collisions.collide_tank_mine(tank.pos, mine.pos, tank.bout):
+                if tank.client_id != mine.client_id and collisions.collide_tank_mine(
+                    tank.pos, mine.pos, tank.bout
+                ):
                     tank.recv_hit(constants.Mine.DAMAGE)
                     tank.set_needs_update()
                     self.send_mine_die(mine)
@@ -181,7 +191,9 @@ class Server:
                 if len(self.server.clients) == 0:
                     self.end_event.set()
                 else:
-                    print(f"\nType '{constants.SERVER_QUIT_KEYWORD}' again to exit or '{constants.SERVER_START_KEYWORD}' to start another game.")
+                    print(
+                        f"\nType '{constants.SERVER_QUIT_KEYWORD}' again to exit or '{constants.SERVER_START_KEYWORD}' to start another game."
+                    )
 
     async def listen_for_start(self) -> None:
         """Start the input handler function."""
@@ -223,7 +235,6 @@ class Server:
                 "mine_id": mine.mine_id,
             }
         )
-
 
     def send_shell_die(self, shell: HeadlessShell, explo: bool = True) -> None:
         shell.die()
@@ -274,9 +285,7 @@ class Server:
 
     def setup_env(
         self,
-    ) -> tuple[
-        int, list[tuple[float]], list[tuple[float]], list[tuple[int, dict[str, Any]]]
-    ]:
+    ) -> tuple[int, list[tuple[float]], list[tuple[float]], list[tuple[int, dict[str, Any]]]]:
         """
         Returns ground half width and tank states.
         Sets self.hill_poses and self.tree_poses.
@@ -344,7 +353,7 @@ class Server:
                     (
                         random.uniform(-self.ground_hw, self.ground_hw),
                         0.0,
-                        random.uniform(-self.ground_hw, self.ground_hw)
+                        random.uniform(-self.ground_hw, self.ground_hw),
                     )
                 )
                 valid = True

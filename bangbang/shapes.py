@@ -4,6 +4,7 @@ from typing import Optional
 
 from OpenGL.GL import *
 import numpy as np
+
 # hides pygame contribute message
 with contextlib.redirect_stdout(None):
     import pygame
@@ -102,7 +103,9 @@ class HeadlessMine(Shape, constants.Mine):
 
 
 class HeadlessShell(Shape, constants.Shell):
-    def __init__(self, client_id: int, shell_id: int, angle: float, out: tuple[float], pos: tuple[float]):
+    def __init__(
+        self, client_id: int, shell_id: int, angle: float, out: tuple[float], pos: tuple[float]
+    ):
         super().__init__()
 
         # self._clock is initialized in Shape.__init__
@@ -419,7 +422,14 @@ class Mine(HeadlessMine):
     BEEP_SOUND = pygame.mixer.Sound("../data/sound/mine.wav")
     EXPLODE_SOUND = pygame.mixer.Sound("../data/sound/mine_explode.wav")
 
-    def __init__(self, game: "game.Game", client_id: int, mine_id: int, pos: Iterable[float], color: tuple[float]) -> None:
+    def __init__(
+        self,
+        game: "game.Game",
+        client_id: int,
+        mine_id: int,
+        pos: Iterable[float],
+        color: tuple[float],
+    ) -> None:
         super().__init__(client_id, mine_id, pos)
 
         if Mine.gllist == "Unknown":
@@ -511,7 +521,9 @@ class Shell(HeadlessShell):
 
     SOUND = pygame.mixer.Sound("../data/sound/shell.wav")
 
-    def __init__(self, client_id: int, shell_id: int, angle: float, out: tuple[float], pos: tuple[float]) -> None:
+    def __init__(
+        self, client_id: int, shell_id: int, angle: float, out: tuple[float], pos: tuple[float]
+    ) -> None:
         super().__init__(client_id, shell_id, angle, out, pos)
 
         # make gllists if necessary
@@ -747,7 +759,8 @@ class VictoryBanner(constants.VictoryBanner):
         if (current_time := time.time()) < self.spawn_time + self.ZOOM_DURATION:
             zoomscale = max(
                 VictoryBanner.FINAL_SCALE,
-                VictoryBanner.ZOOM_SCALE * (1 - ((current_time - self.spawn_time) / VictoryBanner.ZOOM_DURATION)),
+                VictoryBanner.ZOOM_SCALE
+                * (1 - ((current_time - self.spawn_time) / VictoryBanner.ZOOM_DURATION)),
             )
         else:
             zoomscale = 1
@@ -766,7 +779,7 @@ class VictoryBanner(constants.VictoryBanner):
                 ((self.half_width + half_texwidth), (self.half_height - half_texheight)),
             ],
             # draw the victory banner in front of other overlays
-            distance=constants.OVERLAY_DISTANCE/2,
+            distance=constants.OVERLAY_DISTANCE / 2,
         )
 
         # turn on alpha blending

@@ -1,5 +1,6 @@
 import time
 
+
 class Timer:
     """Class to keep track of elapsed time between two update calls."""
 
