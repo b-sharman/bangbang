@@ -1,4 +1,4 @@
-This is project is several years old, and I'm refactoring it, making it asynchronous, and rewriting the network backend with websockets simultaneously.
+I'm refactoring this project, making it asynchronous, and rewriting the network backend with websockets simultaneously. The number of lines I have changed in this effort is greater than the number of lines in the original program.
 
 # How to play the game
 
