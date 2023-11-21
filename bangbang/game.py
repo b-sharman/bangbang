@@ -172,7 +172,6 @@ class Game:
                     self.reloadingbar.fire()
 
             case constants.Msg.SHELL_DIE:
-                # TODO: if the shell died by hitting a tank, play a sound here
                 for s in self.groups.update_list:
                     if hasattr(s, "shell_id") and s.shell_id == message["shell_id"]:
                         if message["explo"]:
