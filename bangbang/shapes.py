@@ -89,7 +89,7 @@ class HeadlessMine(Shape, constants.Mine):
         super().__init__()
 
         self.client_id = client_id
-        self.mine_id
+        self.mine_id = mine_id
         self.pos = tuple(pos)
 
         self.spawn_time = time.time()
