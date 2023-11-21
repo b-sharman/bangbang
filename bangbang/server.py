@@ -88,7 +88,7 @@ class Server:
                 if tank1 == tank2 or pair in already_checked:
                     continue
                 if collisions.collide_tank_tank(tank1.pos, tank2.pos, tank1.bout, tank2.bout):
-                    # TODO: make some sort of network signal to tell clients to play a "tank1 collide" sound
+                    self.server.message_all({"type": constants.Msg.TANK_COLLIDE})
 
                     # move the tanks away from each other
                     away = (

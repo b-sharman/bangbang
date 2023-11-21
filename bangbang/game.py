@@ -54,6 +54,7 @@ class Game:
         # used to avoid update_list, tanks, etc. cluttering the Game namespace
         # https://docs.python.org/3/library/types.html#types.SimpleNamespace
         self.groups = types.SimpleNamespace()
+        self.sounds = types.SimpleNamespace()
 
         self.no_music = no_music
         self.debug = debug
@@ -179,6 +180,7 @@ class Game:
                         else:
                             # no explosion for tank-shell collision
                             s.die()
+                            self.sounds.hit_confirmation.play()
 
             case constants.Msg.START:
                 logging.debug("starting")
@@ -190,6 +192,9 @@ class Game:
 
                 # allow the main game loop to start
                 self.start_event.set()
+
+            case constants.Msg.TANK_COLLIDE:
+                self.sounds.tank_collision.play()
 
             case constants.Msg.QUIT:
                 print("\nServer sent quit signal")
@@ -224,6 +229,9 @@ class Game:
         if not self.no_music:
             pygame.mixer.music.load("../data/sound/theme.mp3")
             pygame.mixer.music.play(-1)  # play the theme song on loop
+
+        self.sounds.hit_confirmation = pygame.mixer.Sound("../data/sound/explosion.wav")
+        self.sounds.tank_collision = pygame.mixer.Sound("../data/sound/crash.wav")
 
         # set the window title
         pygame.display.set_caption("Bang Bang " + constants.VERSION)
