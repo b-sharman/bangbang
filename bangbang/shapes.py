@@ -1,6 +1,5 @@
 import contextlib
 import time
-from typing import Optional
 
 from OpenGL.GL import *
 import numpy as np

@@ -11,8 +11,6 @@ import sys
 import aioconsole
 import numpy as np
 
-import base_shapes
-import bbutils
 import collisions
 import constants
 import server_network

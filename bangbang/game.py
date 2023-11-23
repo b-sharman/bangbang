@@ -6,6 +6,7 @@ import math
 import socket
 import time
 import types
+from typing import Optional
 
 import aioconsole
 import numpy as np
@@ -18,7 +19,6 @@ with contextlib.redirect_stdout(None):
 from OpenGL.GL import *
 from OpenGL.GLU import *
 
-import utils_3d
 import bbutils
 import client
 import collisions

@@ -1,13 +1,10 @@
 import asyncio
 from collections.abc import Iterable
 import json
-import numpy as np
-from typing import Any, Optional
 import websockets
 
 import bbutils
 import constants
-import utils_3d
 
 
 class Client:

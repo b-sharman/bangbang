@@ -1,13 +1,9 @@
 import json
-import random
-import time
 import typing
 
-import numpy as np
 import websockets.client
 import websockets.server
 
-import collisions
 import constants
 
 Message = typing.NewType("Message", dict)
