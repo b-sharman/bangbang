@@ -360,7 +360,6 @@ class LifeBar(constants.LifeBar):
         glPopMatrix()
 
         self.gllists = []
-        first = True
         for image in LifeBar.IMGS:
             # generate texture
             glEnable(GL_TEXTURE_2D)
