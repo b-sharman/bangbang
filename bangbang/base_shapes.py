@@ -4,10 +4,10 @@ import time
 class Timer:
     """Class to keep track of elapsed time between two update calls."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.clock = time.time()
 
-    def delta_time(self):
+    def delta_time(self) -> float:
         """
         Return the time elapsed in seconds since the last call to delta_time.
 
@@ -23,9 +23,9 @@ class Timer:
 class Shape(Timer):
     gllist = "Unknown"
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__()
         self.alive = True
 
-    def die(self):
+    def die(self) -> None:
         self.alive = False
