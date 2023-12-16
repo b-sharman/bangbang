@@ -156,7 +156,6 @@ class HeadlessTank(Shape, constants.Tank):
         Calls die() if this reduces the health to a non-positive number.
         """
         self.health -= damage
-        print(f"{self.client_id} health decremented to {self.health}")
         if self.health <= 0:
             self.die()
 
