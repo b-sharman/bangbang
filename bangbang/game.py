@@ -137,6 +137,8 @@ class Game:
                                 pygame.display.get_window_size()
                             )
 
+                        print(("You" if self.this_player.alive else tuple(self.groups.tanks.values())[0].name) + " won!")
+
                         # end the game in END_TIME seconds
                         self.end_time = time.time() + constants.END_TIME
 
