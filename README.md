@@ -30,4 +30,22 @@ Note that the game currently only works over LAN.
 
 5. Type `start` from the server instance.
 
-6. The controls aren't currently documented, but you can try to figure them out by looking at the `KEYMAP` in `constants.py`.
+## Controls
+
+|Keypress|Action|
+|-|-|
+|`up`|accelerate|
+|`down`|decelerate|
+|`s`|stop (if speed is sufficiently close to zero)|
+|`left`|turn base and turret left together|
+|`right`|turn base and turret right together|
+|`shift`+`left`|turn the turret left|
+|`shift`+`right`|turn the turret right|
+|`ctrl`+`left`|turn the base left|
+|`ctrl`+`right`|turn the base right|
+|`t`|align the turret with the base|
+|`ctrl`+`t`|align the base with the turret|
+|`space`|fire a shell|
+|`b`|lay a mine|
+|`ESC`|force quit|
+|`f`|print current FPS to console|
