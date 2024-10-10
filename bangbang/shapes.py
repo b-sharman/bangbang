@@ -140,7 +140,7 @@ class HeadlessTank(Shape, constants.Tank):
         # snapping back: turret turns to meet base
         # turning back: base turns to meet turret
         # these variables are true if either t or ctrl t have been pressed
-        # I believe they can both be true simulatneously
+        # I believe they can both be true simultaneously
         self.snapping_back = False
         self.turning_back = False
 
