@@ -1,33 +1,19 @@
-# State of the project
-I mostly finished refactoring a horrible pile of spaghetti written by my former
-self into something plausibly maintainable and respectable. However, in order
-to preserve compatibility with the old hardware the project was originally
-designed for, I retained some legacy decisions (for example, the game doesn't
-work on Wayland), and I eventually realized that the cross-compatibility
-necessary would mean I would be best off writing a new frontend with some sort
-of web technology—a massive effort which caused me to abandon the project.
+In 2023, I successfully refactored what used to be an old middle school project
+into something plausibly maintainable and respectable. However, in order to
+preserve compatibility with old hardware, I retained some legacy decisions (for
+example, the game doesn't work on Wayland), and I eventually realized that the
+necessary cross-compatibility necessary would mean I would be best off porting
+the frontend to WebGL or even rewriting it from scratch—a massive effort which
+caused me to abandon the project.
 
-As such, **there are some unfinished pieces** that I would consider
-embarrassing were this project declared to be production-ready. There's some
-improvement left to do in the typing, and I ought to create a virtual
-environment rather than relying on the user to install dependencies manually.
-Also, a TCP protocol like WebSockets was an odd choice for a video game, and
-switching to something else would mean rewriting most of the network code.
+That's why I feel obliged to point out the missing pieces that I wouldn't want
+in a finished project: unenforced typing, no unit tests, no dependency
+management or `pyproject.toml`. Also, a TCP protocol like WebSockets is an odd
+choice for a non-web video game.
 
-Despite this, I still think it's a good project to keep around because it shows
-what my other projects don't:
-- I can architect projects larger than the hackathons I usually post.
-- I am interested in—and am capable of—more than JavaScripty web stuff.
-
-Below is the README in the state when I last actively maintained the project.
-
----
-
-I'm refactoring this project, making it asynchronous, and rewriting the network
-backend with websockets simultaneously. The number of lines I have changed in
-this effort is greater than the number of lines in the original program.
-
-# How to play the game
+Despite this, I still solved a lot of interesting problems while rewriting it,
+and I don't feel like trying to bury it because it is one of my more ambitious
+completed projects. If you want to try it out, follow the steps below:
 
 1. Install these dependencies:
 * [aioconsole](https://aioconsole.readthedocs.io/en/latest/)
