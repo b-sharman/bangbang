@@ -2,9 +2,9 @@ In 2023, I successfully refactored what used to be an old middle school project
 into something plausibly maintainable and respectable. However, in order to
 preserve compatibility with old hardware, I retained some legacy decisions (for
 example, the game doesn't work on Wayland), and I eventually realized that the
-necessary cross-compatibility necessary would mean I would be best off porting
-the frontend to WebGL or even rewriting it from scratch—a massive effort which
-caused me to abandon the project.
+cross-compatibility I needed would require me to port the frontend to WebGL or
+even rewrite it from scratch—a massive effort which caused me to shift my
+attention to other projects.
 
 That's why I feel obliged to point out the missing pieces that I wouldn't want
 in a finished project: unenforced typing, no unit tests, no dependency
