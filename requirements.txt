@@ -1,0 +1,6 @@
+aioconsole==0.8.1
+numpy==2.2.3
+pygame-ce==2.5.3
+pyopengl==3.1.9
+pyopengl-accelerate==3.1.9
+websockets==15.0.1

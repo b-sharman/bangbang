@@ -1,27 +1,15 @@
-In 2023, I successfully refactored what used to be an old middle school project
-into something plausibly maintainable and respectable. However, in order to
-preserve compatibility with old hardware, I retained some legacy decisions (for
-example, the game doesn't work on Wayland), and I eventually realized that the
-cross-compatibility I needed would require me to port the frontend to WebGL or
-even rewrite it from scratch—a massive effort which caused me to shift my
-attention to other projects.
+This is a very old project that I've recently (2023–2024) refactored into a
+pretty nice codebase, and probably the largest personal project I have ever
+worked on.
 
-That's why I feel obliged to point out the missing pieces that I wouldn't want
-in a finished project: unenforced typing, no unit tests, no dependency
-management or `pyproject.toml`. Also, a TCP protocol like WebSockets is an odd
-choice for a non-web video game.
+## How can I try it?
 
-Despite this, I still solved a lot of interesting problems while rewriting it,
-and I don't feel like trying to bury it because it is one of my more ambitious
-completed projects. If you want to try it out, follow the steps below:
+By installing it locally.
 
-1. Install these dependencies:
-* [aioconsole](https://aioconsole.readthedocs.io/en/latest/)
-* [PyOpenGL](https://pyopengl.sourceforge.net/)
-* [pygame](https://www.pygame.org/news)
-* [websockets](https://websockets.readthedocs.io/en/stable/)
+I haven't gotten around to properly packaging this thing, so for now, just
+install from the `requirements.txt`.
 
-2. Clone the `refactor` branch:
+1. Clone the repository:
 ```sh
 $ git clone https://github.com/b-sharman/bangbang.git # for HTTPS
 ```
@@ -29,17 +17,29 @@ $ git clone https://github.com/b-sharman/bangbang.git # for HTTPS
 $ git clone git@github.com:b-sharman/bangbang.git # for SSH
 ```
 
+2. Make and activate a virtual environment:
+```sh
+$ cd bangbang
+$ python -m venv .venv
+$ source .venv/bin/activate
+```
+
+3. Install dependencies:
+```sh
+$ pip install requirements.txt
+```
+
 3. Start a server:
 ```sh
-$ cd bangbang/bangbang
+$ cd bangbang
 $ python server.py
 ```
 
-4. Then start client(s) using the IP address listed by the server:
+4. Then, from another terminal or another computer on the same LAN, start
+   client(s) using the IP address listed by the server:
 ```sh
-$ ./bangbang [ip]
+$ python bangbang.py [ip]
 ```
-Note that the game currently only works over LAN.
 
 5. Type `start` from the server instance.
 
