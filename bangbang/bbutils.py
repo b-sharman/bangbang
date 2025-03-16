@@ -1,8 +1,8 @@
 import json
 import typing
 
-import websockets.client
-import websockets.server
+import websockets.asyncio.client
+import websockets.asyncio.server
 
 import constants
 
@@ -99,9 +99,9 @@ class _BBSharedProtocol:
         await super().send(json.dumps(message))
 
 
-class BBClientProtocol(_BBSharedProtocol, websockets.client.WebSocketClientProtocol):
+class BBClientProtocol(_BBSharedProtocol, websockets.asyncio.client.ClientConnection):
     pass
 
 
-class BBServerProtocol(_BBSharedProtocol, websockets.server.WebSocketServerProtocol):
+class BBServerProtocol(_BBSharedProtocol, websockets.asyncio.server.ServerConnection):
     pass

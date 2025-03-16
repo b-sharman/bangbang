@@ -27,7 +27,7 @@ class Client:
     async def start(self, ip: str) -> None:
         """Attempt to connect to the server and listen for new messages."""
         async with websockets.connect(
-            f"ws://{ip}:{constants.PORT}", create_protocol=bbutils.BBClientProtocol
+            f"ws://{ip}:{constants.PORT}", create_connection=bbutils.BBClientProtocol
         ) as self.ws:
             async with asyncio.TaskGroup() as tg:
                 async for raw_message in self.ws:

@@ -95,7 +95,7 @@ class ServerNetwork:
             self.handle_new_connection,
             self.ip,
             constants.PORT,
-            create_protocol=bbutils.BBServerProtocol,
+            create_connection=bbutils.BBServerProtocol,
             ping_interval=5,
             ping_timeout=10,
         ):
