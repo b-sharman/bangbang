@@ -55,8 +55,6 @@ def main():
 
         return
 
-    if os.environ["XDG_SESSION_TYPE"] != "x11":
-        print("Warning: Bang Bang does not support non-Xorg environments (e.g. Wayland).")
     try:
         asyncio.run(game.main(args.host, args.no_music, args.debug))
     except KeyboardInterrupt:

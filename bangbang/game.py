@@ -23,7 +23,16 @@ import bbutils
 import client
 import collisions
 import constants
+import os
 import shapes
+
+
+# make SDL2 play nicely with Wayland
+# This shouldn't be necessary once pygame-ce migrates to SDL3
+#
+# see https://pyga.me/docs/ref/display.html#pygame.display.init
+if os.environ["XDG_SESSION_TYPE"] == "wayland":
+    os.putenv("SDL_VIDEODRIVER", "wayland")
 
 # For now, pygame init needs to be here since some classes load sounds, etc. in
 # their headers
