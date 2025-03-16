@@ -153,11 +153,13 @@ class Server:
         while output != constants.SERVER_START_KEYWORD and output != constants.SERVER_QUIT_KEYWORD:
             try:
                 output = await aioconsole.ainput()
-            # send QUIT on KeyboardInterrupt, EOFError
-            except asyncio.CancelledError:
-                self.server.message_all({"type": constants.Msg.QUIT})
-                # pass along the error
-                raise
+            # CTRL-d and CTRL-c should do roughly the same thing as running the quit command
+            # except if a game is running, the game should be killed
+            # TODO: not good to swallow asyncio.CancelledError - see https://docs.python.org/3/library/asyncio-task.html#task-cancellation
+            except (asyncio.exceptions.CancelledError, EOFError):
+                output = constants.SERVER_QUIT_KEYWORD
+                self.end_event.set()
+
         match output:
             case constants.SERVER_START_KEYWORD if not self.server.game_running:
                 # It is always OK to start in debug mode
@@ -188,7 +190,8 @@ class Server:
                 self.server.end_game()
                 if len(self.server.clients) == 0:
                     self.end_event.set()
-                else:
+                # self.end_event might have been set by the EOF handler above
+                elif not self.end_event.is_set():
                     print(
                         f"\nType '{constants.SERVER_QUIT_KEYWORD}' again to exit or '{constants.SERVER_START_KEYWORD}' to start another game."
                     )
