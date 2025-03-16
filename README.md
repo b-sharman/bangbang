@@ -11,34 +11,35 @@ install from the `requirements.txt`.
 
 1. Clone the repository:
 ```sh
-$ git clone https://github.com/b-sharman/bangbang.git # for HTTPS
+git clone https://github.com/b-sharman/bangbang.git # for HTTPS
 ```
 ```sh
-$ git clone git@github.com:b-sharman/bangbang.git # for SSH
+git clone git@github.com:b-sharman/bangbang.git # for SSH
 ```
 
 2. Make and activate a virtual environment:
 ```sh
-$ cd bangbang
-$ python -m venv .venv
-$ source .venv/bin/activate
+cd bangbang
+python -m venv .venv
+source .venv/bin/activate
 ```
 
 3. Install dependencies:
 ```sh
-$ pip install requirements.txt
+pip install -r requirements.txt
 ```
 
 3. Start a server:
 ```sh
-$ cd bangbang
-$ python server.py
+cd bangbang
+python server.py
 ```
 
-4. Then, from another terminal or another computer on the same LAN, start
-   client(s) using the IP address listed by the server:
+4. Then, from another terminal or another computer on the same LAN, re-enter
+   the virtual environment (`source .venv/bin/activate`) and start clients
+   using the IP address listed by the server:
 ```sh
-$ python bangbang.py [ip]
+python bangbang.py [ip]
 ```
 
 5. Type `start` from the server instance.
